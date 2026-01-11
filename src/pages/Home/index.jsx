@@ -55,7 +55,7 @@ export default function Home() {
   ];
   useEffect(() => {
     async function loadUnits() {
-      const res = await apiFetch("http://localhost:4000/unidad/wialon/summary");
+      const res = await apiFetch("https://apipx.onrender.com/unidad/wialon/summary");
 
       if (!res) return; // apiFetch ya manejó el 401
 
