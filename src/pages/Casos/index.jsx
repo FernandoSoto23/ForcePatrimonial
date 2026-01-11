@@ -33,6 +33,7 @@ import {
 } from "./utils/fechas";
 import { extraerLatLng, extraerZonas } from "./utils/geocercas";
 import MensajeExpandable from "./components/MensajeExpandible";
+import { jwtDecode } from "jwt-decode";
 /* ============================================================
    CONFIG   VARIABLES GLOBALES
 ============================================================ */
@@ -76,6 +77,8 @@ export default function Casos() {
   /* USE REF */
   const unidadesUsuarioRef = useRef(new Set());
   const unidadValidaCacheRef = useRef(new Map());
+  const unidadesMapRef = useRef(new Map());
+
   /* USE MEMO */
   const lista = useMemo(() => {
     return Object.values(casos).sort((a, b) => tsCaso(b) - tsCaso(a));
@@ -147,19 +150,21 @@ export default function Casos() {
     const mensaje = safeDecode(data.mensaje);
     const unidad = (data.unidad || "").trim();
     const tipo = (data.tipo || "").trim();
-
     if (!mensaje || !unidad || !tipo) return;
 
-    // 🔐 FILTRO POR UNIDADES DEL USUARIO
-    try {
-      if (!unidadesUsuarioRef.current.has(normalize(unidad))) return;
-    } catch (e) {
-      console.error("❌ Error leyendo wialon_units:", e);
+    const key = normalize(unidad);
+
+    // 🔐 filtrar por unidades del usuario
+    if (!unidadesUsuarioRef.current.has(key)) return;
+
+    // 🗺 unitId ÚNICO Y CONFIABLE
+    const unitId = unidadesMapRef.current.get(key);
+    if (!unitId) {
+      console.warn("⚠️ Unidad sin unitId:", unidad);
       return;
     }
 
-    const tsRx = Date.now(); // llegada
-
+    const tsRx = Date.now();
     let tsInc = tsRx;
 
     const fh = extraerFechaHora(mensaje);
@@ -175,11 +180,7 @@ export default function Casos() {
     const tipoNorm = normalize(tipo);
     const alertaId = data.id;
 
-    const unitId =
-      data.unitId || data.wialon_unit_id || obtenerUnitIdDesdeNombre(unidad);
-
     const coords = extraerLatLng(mensaje);
-
     const geocercasDetectadas = coords
       ? detectarGeocercasParaAlerta(coords.lat, coords.lng)
       : [];
@@ -190,7 +191,7 @@ export default function Casos() {
       const actual = copia[casoId] || {
         id: casoId,
         unidad,
-        unitId,
+        unitId, // ✅ YA NO SE PIERDE
         eventos: [],
         repeticiones: {},
         critico: false,
@@ -198,7 +199,6 @@ export default function Casos() {
         estado: "NUEVO",
       };
 
-      // 2️⃣ deduplicación
       const yaExiste = actual.eventos.some((e) => {
         if (alertaId != null && e.id != null) {
           return String(e.id) === String(alertaId);
@@ -208,7 +208,6 @@ export default function Casos() {
         return eMsgNorm === msgNorm && Math.abs(e.tsRx - tsRx) < DEDUP_TTL;
       });
 
-      // 3️⃣ insertar evento
       if (!yaExiste) {
         actual.eventos.push({
           id: alertaId,
@@ -223,23 +222,21 @@ export default function Casos() {
         });
       }
 
-      // 4️⃣ recalcular repeticiones
       const reps = {};
       for (const e of actual.eventos) {
         const k = normalize(e.tipo);
         reps[k] = (reps[k] || 0) + 1;
       }
+
       actual.repeticiones = reps;
 
-      // 5️⃣ correlación
       const tiposUnicos = Object.keys(reps);
       const combinacion =
         tiposUnicos.length >= 2 ? tiposUnicos.join(" + ") : undefined;
 
-      const hayRepetido = Object.values(reps).some((n) => n >= 2);
-      const critico = Boolean(combinacion) || hayRepetido;
+      const critico =
+        Boolean(combinacion) || Object.values(reps).some((n) => n >= 2);
 
-      // 6️⃣ sirena
       if (!actual.critico && critico) {
         sirena.current?.play().catch(() => {});
       }
@@ -247,13 +244,13 @@ export default function Casos() {
       actual.critico = critico;
       actual.combinacion = combinacion;
 
-      // 7️⃣ ordenar eventos
       actual.eventos.sort((a, b) => b.tsInc - a.tsInc);
 
       copia[casoId] = actual;
       return copia;
     });
   };
+
   const resumenReps = (reps) => {
     const entries = Object.entries(reps || {});
     if (entries.length === 0) return "—";
@@ -294,26 +291,43 @@ export default function Casos() {
     });
   }
 
-  /*   useEffect(() => {
-    const obtenerUsuario = async () => {
-      const data = await fetch("/api/session");
-      const resp = await data.json();
-      setUsuario(resp);
-    };
-    obtenerUsuario();
-  }, []); */
+  useEffect(() => {
+    const token = localStorage.getItem("auth_token");
+    if (!token) return;
+
+    try {
+      const decoded = jwtDecode(token);
+
+      // ejemplo: decoded.usuario o decoded.user
+      console.log(decoded);
+      setUsuario(decoded);
+    } catch (error) {
+      console.error("Token inválido", error);
+    }
+  }, []);
 
   useEffect(() => {
     const raw = localStorage.getItem("wialon_units");
     if (!raw) return;
 
     const unidades = JSON.parse(raw);
-    unidadesUsuarioRef.current = new Set(
-      unidades
-        .map((u) => u.unidad) // 👈 CAMPO CORRECTO
-        .filter(Boolean)
-        .map((name) => normalize(name))
-    );
+
+    const set = new Set();
+    const map = new Map();
+
+    unidades.forEach((u) => {
+      if (!u?.unidad || !u?.id) return;
+
+      const key = normalize(u.unidad);
+      set.add(key);
+      map.set(key, u.id);
+    });
+
+    unidadesUsuarioRef.current = set;
+    unidadesMapRef.current = map;
+
+    console.log("🔐 Unidades cargadas:", set.size);
+    console.log("🗺 Mapa unidad→id:", map.size);
   }, []);
 
   useEffect(() => {
@@ -372,9 +386,7 @@ export default function Casos() {
     };
   }, []);
 
-  useEffect(() => {
-    loadGeocercasOnce().catch(console.error);
-  }, []);
+
   useEffect(() => {
     const socket = io(SOCKET_URL, {
       transports: ["websocket"],
@@ -731,8 +743,8 @@ export default function Casos() {
                           alertas: casoCriticoSeleccionado.eventos.map(
                             (e) => e.id
                           ),
-                          id_usuario: usuario.user.id,
-                          nombre_usuario: usuario.user.name,
+                          id_usuario: usuario.id,
+                          nombre_usuario: usuario.name,
                           detalle_cierre: detalleCierre, // ✅ MISMA NOTA PARA TODAS
                         }),
                       }
@@ -782,7 +794,7 @@ export default function Casos() {
                 </label>
 
                 <p className="text-sm font-medium text-gray-800">
-                  {usuario.user.name || "—"}
+                  {usuario.name || "—"}
                 </p>
               </div>
 
@@ -885,8 +897,8 @@ export default function Casos() {
                       },
                       body: JSON.stringify({
                         id_alerta: casoSeleccionado.eventos[0].id,
-                        id_usuario: usuario.user.id,
-                        nombre_usuario: usuario.user.name,
+                        id_usuario: usuario.id,
+                        nombre_usuario: usuario.name,
                         detalle_cierre: detalleCierre, // ✅ AQUÍ VA LA NOTA
                       }),
                     });
@@ -1180,7 +1192,7 @@ export default function Casos() {
         </div>
       </div>
       {/* IA CONVERSACIONAL */}
-{/*       <div className="mt-4 border rounded p-3 bg-gray-50">
+      {/*       <div className="mt-4 border rounded p-3 bg-gray-50">
         <div className="text-xs font-bold mb-2">
           🤖 Conversación con operador
         </div>
@@ -1390,6 +1402,7 @@ export default function Casos() {
             {/* MAPA */}
             <div className="w-full h-[calc(100%-40px)]">
               <MapaUnidadLive
+                key={mapaUnidad.unitId} // 🔥 OBLIGATORIO
                 unitId={mapaUnidad.unitId}
                 alerta={mapaUnidad.alerta}
               />

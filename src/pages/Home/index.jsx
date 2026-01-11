@@ -11,6 +11,7 @@ import {
   Tooltip,
 } from "recharts";
 import { Link } from "react-router-dom";
+import { apiFetch } from "../../utils/api";
 
 export default function Home() {
   const [units, setUnits] = useState({
@@ -54,40 +55,24 @@ export default function Home() {
   ];
   useEffect(() => {
     async function loadUnits() {
-      try {
-        const token = localStorage.getItem("auth_token");
+      const res = await apiFetch("http://localhost:4000/unidad/wialon/summary");
 
-        if (!token) {
-          console.warn("No hay token Wialon");
-          return;
-        }
+      if (!res) return; // apiFetch ya manejó el 401
 
-        const res = await fetch("http://localhost:4000/unidad/wialon/summary", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      const data = await res.json();
+
+      if (data.ok) {
+        setUnits({
+          total: data.totalUnits ?? 0,
+          active: data.countActive ?? 0,
+          inactive: data.countInactive ?? 0,
         });
-
-        if (!res.ok) {
-          throw new Error("Error de autorización");
-        }
-
-        const data = await res.json();
-        console.log("Resumen de unidades:", data);
-        if (data.ok) {
-          setUnits({
-            total: data.totalUnits ?? 0,
-            active: data.countActive ?? 0,
-            inactive: data.countInactive ?? 0,
-          });
-        }
-      } catch (err) {
-        console.error("Error cargando resumen de unidades", err);
       }
     }
 
     loadUnits();
   }, []);
+
   useEffect(() => {
     async function loadUnidades() {
       try {

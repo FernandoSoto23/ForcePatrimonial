@@ -9,16 +9,16 @@ export default function AuthSuccess() {
     const token = params.get("token");
 
     if (!token) {
-      navigate("/login");
+      navigate("/login", { replace: true });
       return;
     }
 
-    // Guardar token
     localStorage.setItem("auth_token", token);
 
-    // Redirigir al dashboard
-    navigate("/");
-  }, [navigate]);
+    window.history.replaceState({}, document.title, "/");
+
+    navigate("/", { replace: true });
+  }, []);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-black text-white">

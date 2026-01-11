@@ -25,9 +25,13 @@ export default function Login() {
     return () => clearTimeout(timer);
   }, [index, deleting]);
 
-const handleLogin = () => {
-  window.location.href = "http://localhost:4000/auth/wialon/login";
-};
+  function handleLogin() {
+    // 🔥 LIMPIEZA TOTAL
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("wialon_units");
+
+    window.location.href = "https://apipx.onrender.com/auth/wialon/login";
+  }
 
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen text-white overflow-hidden select-none">

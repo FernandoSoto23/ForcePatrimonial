@@ -1,25 +1,23 @@
-let geocercasPolys = null;
-let geocercasLines = null;
+let geocercasPolys = [];
+let geocercasLines = [];
 let loadingPromise = null;
 
 export async function loadGeocercasOnce() {
-  if (geocercasPolys && geocercasLines) return;
+  if (geocercasPolys.length && geocercasLines.length) return;
 
   if (!loadingPromise) {
     loadingPromise = (async () => {
       console.log("🌐 Cargando TODAS las geocercas en memoria (una sola vez)");
 
-      const [polys, lines] = await Promise.all([
-        fetch("/api/wialon/geofences").then((r) => r.json()),
-        fetch(
-          "https://apipx.onrender.com/geofences/geofences/18891825/lines"
-        ).then((r) => r.json()),
+      const [polysResp, linesResp] = await Promise.all([
+        fetch("https://apipx.onrender.com/geofences/geofences/18891825/normal").then(r => r.json()),
+        fetch("https://apipx.onrender.com/geofences/geofences/18891825/lines").then(r => r.json()),
       ]);
 
-      geocercasPolys = polys;
-      geocercasLines = lines;
+      geocercasPolys = Array.isArray(polysResp) ? polysResp : [];
+      geocercasLines = Array.isArray(linesResp) ? linesResp : [];
 
-      console.log("✅ Geocercas cargadas en memoria");
+      console.log("✅ Geocercas cargadas:", geocercasPolys.length);
     })();
   }
 
