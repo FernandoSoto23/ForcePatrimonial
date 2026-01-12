@@ -8,13 +8,16 @@ import "react-toastify/dist/ReactToastify.css";
 import { GeocercasLinealesProvider } from "./context/GeocercasLinealesContext";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { UnitsProvider } from "./context/UnitsContext";
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <GeocercasProvider>
-    <GeocercasLinealesProvider>
-      <BrowserRouter>
-      <ToastContainer position="bottom-right" />
-        <App />
-      </BrowserRouter>
-    </GeocercasLinealesProvider>
-  </GeocercasProvider>
+  <UnitsProvider>
+    <GeocercasProvider>
+      <GeocercasLinealesProvider>
+        <BrowserRouter>
+          <ToastContainer position="bottom-right" />
+          <App />
+        </BrowserRouter>
+      </GeocercasLinealesProvider>
+    </GeocercasProvider>
+  </UnitsProvider>
 );

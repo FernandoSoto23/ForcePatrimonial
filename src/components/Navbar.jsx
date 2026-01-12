@@ -21,11 +21,10 @@ export default function Navbar({ user }) {
   const categories = {
     Monitoreo: [
       { href: "/", label: "Dashboard" },
-      { href: "/zona-protegida", label: "Zona protegida" },
-      { href: "/mapa", label: "Mapa" },
-      { href: "/incidencias", label: "Incidencias" },
+      { href: "/mapa", label: "GlobalTrack" },
       { href: "/dispositivos", label: "Dispositivos" },
       { href: "/casos", label: "Casos" },
+      { href: "/casosv2", label: "Casosv2" },
     ],
   };
 

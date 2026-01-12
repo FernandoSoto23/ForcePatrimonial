@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { ShieldAlert, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "react-toastify";
+import { useUnits } from "../../context/UnitsContext";
 
 import ProtocolLauncher from "./components/ProtocoloLauncher";
 import MapaUnidadLive from "./components/MapaUnidadLive";
@@ -51,6 +52,7 @@ const SLTA_LABEL = {
 
 export default function Casos() {
   /* VARIABLES DE ESTADO */
+
   const [casos, setCasos] = useState({});
   const sirena = useRef(null);
   const [showMsg, setShowMsg] = useState(false);
@@ -78,6 +80,8 @@ export default function Casos() {
   const unidadesUsuarioRef = useRef(new Set());
   const unidadValidaCacheRef = useRef(new Map());
   const unidadesMapRef = useRef(new Map());
+
+  const { units, loading: loadingUnits } = useUnits();
 
   /* USE MEMO */
   const lista = useMemo(() => {
@@ -307,15 +311,13 @@ export default function Casos() {
   }, []);
 
   useEffect(() => {
-    const raw = localStorage.getItem("wialon_units");
-    if (!raw) return;
-
-    const unidades = JSON.parse(raw);
+    if (loadingUnits) return;
+    if (!Array.isArray(units) || units.length === 0) return;
 
     const set = new Set();
     const map = new Map();
 
-    unidades.forEach((u) => {
+    units.forEach((u) => {
       if (!u?.unidad || !u?.id) return;
 
       const key = normalize(u.unidad);
@@ -326,9 +328,9 @@ export default function Casos() {
     unidadesUsuarioRef.current = set;
     unidadesMapRef.current = map;
 
-    console.log("🔐 Unidades cargadas:", set.size);
-    console.log("🗺 Mapa unidad→id:", map.size);
-  }, []);
+    console.log("🔐 Unidades cargadas desde Context:", set.size);
+    console.log("🗺 Mapa unidad → id:", map.size);
+  }, [units, loadingUnits]);
 
   useEffect(() => {
     let cancel = false;
@@ -385,7 +387,6 @@ export default function Casos() {
       cancel = true;
     };
   }, []);
-
 
   useEffect(() => {
     const socket = io(SOCKET_URL, {

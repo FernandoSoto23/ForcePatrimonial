@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 export default function Login() {
   const fullText = "Wialon Security Dashboard 2.0";
   const [displayedText, setDisplayedText] = useState("");
@@ -29,8 +29,9 @@ export default function Login() {
     // 🔥 LIMPIEZA TOTAL
     localStorage.removeItem("auth_token");
     localStorage.removeItem("wialon_units");
+    console.log(`${API_URL}/auth/wialon/login`)
 
-    window.location.href = "https://apipx.onrender.com/auth/wialon/login";
+    window.location.href = `${API_URL}/auth/wialon/login`;
   }
 
   return (

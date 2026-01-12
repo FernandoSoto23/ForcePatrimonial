@@ -73,50 +73,6 @@ export default function Home() {
     loadUnits();
   }, []);
 
-  useEffect(() => {
-    async function loadUnidades() {
-      try {
-        const token = localStorage.getItem("auth_token");
-
-        if (!token) {
-          console.warn("No hay token");
-          return;
-        }
-
-        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
-
-        const res = await fetch(`${API_URL}/unidad/unidades`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!res.ok) {
-          throw new Error("Error de autorización");
-        }
-
-        const data = await res.json();
-        console.log("Unidades:", data);
-
-        if (data.ok) {
-          // 👉 2️⃣ Guardar SOLO una vez en localStorage
-          const alreadySaved = localStorage.getItem("wialon_units");
-
-          if (!alreadySaved) {
-            localStorage.setItem(
-              "wialon_units",
-              JSON.stringify(data.unidades ?? [])
-            );
-            console.log("💾 Unidades guardadas en localStorage");
-          }
-        }
-      } catch (err) {
-        console.error("Error cargando unidades", err);
-      }
-    }
-
-    loadUnidades();
-  }, []);
 
   return (
     <div className="bg-gray-100 min-h-screen">

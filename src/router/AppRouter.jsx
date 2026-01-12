@@ -6,6 +6,8 @@ import RequireAuth from "./RequireAuth";
 import PublicRoute from "./PublicRoute";
 import Home from "../pages/Home";
 import Casos from "../pages/Casos";
+import Dispositivos from "../pages/Dispositivos";
+import Casosv2 from "../pages/Casosv2";
 
 export default function AppRouter() {
   return (
@@ -37,6 +39,8 @@ export default function AppRouter() {
         {/* HOME */}
         <Route path="/home" element={<Home />} />
         <Route path="/casos" element={<Casos />} />
+         <Route path="/casosv2" element={<Casosv2 />} />
+        <Route path="/dispositivos" element={<Dispositivos />} />
       </Route>
 
       {/* =========================
