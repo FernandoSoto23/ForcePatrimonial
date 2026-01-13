@@ -19,7 +19,7 @@ export default function MapaUnidadLive({ unitId }) {
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const containerRef = useRef(null);
-
+  const yaHizoZoomRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
 
   const { polys, ready } = useGeocercas();
@@ -152,14 +152,29 @@ export default function MapaUnidadLive({ unitId }) {
       const d = await r.json();
       if (!d?.ok) return;
 
+      const lngLat = [d.lng, d.lat]; // ✅ ESTA LÍNEA FALTABA
+
       if (!markerRef.current) {
         markerRef.current = new mapboxgl.Marker({
           element: crearMarkerCamion(d.course),
         })
-          .setLngLat([d.lng, d.lat])
+          .setLngLat(lngLat)
           .addTo(mapRef.current);
       } else {
-        markerRef.current.setLngLat([d.lng, d.lat]);
+        markerRef.current.setLngLat(lngLat);
+      }
+
+      // 🔥 ZOOM + CENTRADO SOLO UNA VEZ
+      if (!yaHizoZoomRef.current) {
+        mapRef.current.flyTo({
+          center: lngLat,
+          zoom: 16,
+          speed: 1.2,
+          curve: 1.4,
+          essential: true,
+        });
+
+        yaHizoZoomRef.current = true;
       }
     };
 

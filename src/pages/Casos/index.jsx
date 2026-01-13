@@ -406,6 +406,8 @@ export default function Casos() {
   }, [units, loadingUnits]);
 
   useEffect(() => {
+    if (loadingUnits) return;
+    if (unidadesUsuarioRef.current.size === 0) return;
     let cancel = false;
 
     const cargarAlertas = async () => {
@@ -459,7 +461,7 @@ export default function Casos() {
     return () => {
       cancel = true;
     };
-  }, []);
+}, [loadingUnits, units]);
   useEffect(() => {
     const flush = () => {
       if (bufferRef.current.length === 0) return;

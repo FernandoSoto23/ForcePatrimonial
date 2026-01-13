@@ -78,11 +78,13 @@ export default function Casos() {
     detenida: false,
     sinSenal: false,
   });
-
+  const [unidadesListas, setUnidadesListas] = useState(false);
   /* USE REF */
+  const alertasCrudasRef = useRef([]);
   const unidadesUsuarioRef = useRef(new Set());
   const unidadValidaCacheRef = useRef(new Map());
   const unidadesMapRef = useRef(new Map());
+  const alertasPendientesRef = useRef([]);
 
   const { units, loading: loadingUnits } = useUnits();
 
@@ -114,13 +116,12 @@ export default function Casos() {
         <div
           key={c.id}
           className={`mb-3 p-4 rounded-lg border transition-all
-          ${
-            panico
+          ${panico
               ? "bg-red-50 border-red-400 border-l-8 border-l-red-600"
               : slta
-              ? "bg-green-50 border-green-400 border-l-8 border-l-green-700"
-              : "bg-white border-gray-300"
-          }`}
+                ? "bg-green-50 border-green-400 border-l-8 border-l-green-700"
+                : "bg-white border-gray-300"
+            }`}
         >
           {/* GEOCERCAS DETECTADAS */}
           {c.eventos[0]?.geocercas_detectadas?.length > 0 && (
@@ -295,13 +296,12 @@ export default function Casos() {
         <div
           key={c.id}
           className={`mb-3 p-4 rounded-lg border transition-all
-          ${
-            panico
+          ${panico
               ? "bg-red-50 border-red-500 border-l-8 border-l-red-700"
               : slta
-              ? "bg-green-50 border-green-400 border-l-8 border-l-green-700"
-              : "bg-white border-gray-300"
-          }`}
+                ? "bg-green-50 border-green-400 border-l-8 border-l-green-700"
+                : "bg-white border-gray-300"
+            }`}
         >
           {/* TODO tu JSX actual de críticos, SIN CAMBIOS */}
         </div>
@@ -357,19 +357,27 @@ export default function Casos() {
   };
   function unidadPerteneceAlUsuario(unidad) {
     if (!unidad) return false;
+    if (!unidadesListas) return false; // ⛔ NO CACHEAR AÚN
 
     const key = normalize(unidad);
 
-    // 🚀 cache inmediato
     if (unidadValidaCacheRef.current.has(key)) {
       return unidadValidaCacheRef.current.get(key);
     }
+
     const pertenece = unidadesUsuarioRef.current.has(key);
     unidadValidaCacheRef.current.set(key, pertenece);
 
     return pertenece;
   }
   const procesarAlerta = (data) => {
+    alertasCrudasRef.current.push(data);
+    if (!unidadesListas) {
+      // 🧠 guardar alerta para después
+      alertasPendientesRef.current.push(data);
+      return;
+    }
+
     const mensaje = safeDecode(data.mensaje);
     const unidad = (data.unidad || "").trim();
     const tipo = (data.tipo || "").trim();
@@ -461,7 +469,7 @@ export default function Casos() {
         Boolean(combinacion) || Object.values(reps).some((n) => n >= 2);
 
       if (!actual.critico && critico) {
-        sirena.current?.play().catch(() => {});
+        sirena.current?.play().catch(() => { });
       }
 
       actual.critico = critico;
@@ -529,7 +537,6 @@ export default function Casos() {
 
     units.forEach((u) => {
       if (!u?.unidad || !u?.id) return;
-
       const key = normalize(u.unidad);
       set.add(key);
       map.set(key, u.id);
@@ -537,10 +544,24 @@ export default function Casos() {
 
     unidadesUsuarioRef.current = set;
     unidadesMapRef.current = map;
+    unidadValidaCacheRef.current.clear();
 
-    console.log("🔐 Unidades cargadas desde Context:", set.size);
-    console.log("🗺 Mapa unidad → id:", map.size);
+    setUnidadesListas(true);
+
+    console.log("🔐 Unidades listas:", set.size);
+    console.log("🔁 Reprocesando alertas:", alertasCrudasRef.current.length);
+
+    // 🔥 RESET VISUAL CONTROLADO
+    setCasos({});
+
+    // 🔁 REPROCESAR TODAS LAS ALERTAS
+    alertasCrudasRef.current.forEach(procesarAlerta);
+
+    setCargaTerminada(true);
   }, [units, loadingUnits]);
+
+
+
 
   useEffect(() => {
     let cancel = false;
@@ -550,42 +571,22 @@ export default function Casos() {
         const resp = await fetch(`${API_URL}/alertas/activas`);
         const data = await resp.json();
         if (cancel) return;
+
         const todas = data ?? [];
         setTotalAlertas(todas.length);
 
-        // 🔐 filtrar por unidades del usuario
-        const filtradas = todas.filter((a) =>
-          unidadPerteneceAlUsuario(a.unidad)
+        todas.forEach((a) =>
+          procesarAlerta({
+            id: a.id,
+            mensaje: a.mensaje,
+            unidad: a.unidad,
+            tipo: a.tipo,
+            geocerca_slta: a.geocerca_slta,
+            geocercas_json: a.geocercas_json,
+          })
         );
-        console.log(filtradas);
-        setAlertasFiltradas(filtradas.length);
-        setAlertasProcesadas(0);
-        setCargaTerminada(false);
 
-        // ⚙️ procesar en lotes
-        procesarEnLotes(
-          filtradas,
-          (a) => {
-            procesarAlerta({
-              id: a.id,
-              mensaje: a.mensaje,
-              unidad: a.unidad,
-              tipo: a.tipo,
-              geocerca_slta: a.geocerca_slta,
-              fecha_incidente: a.fecha_incidente,
-              hora_incidente: a.hora_incidente,
-              geocercas_json: a.geocercas_json,
-            });
-          },
-          200,
-          (procesadas) => {
-            setAlertasProcesadas(procesadas);
-          },
-          () => {
-            setCargaTerminada(true);
-            console.log("✅ Carga inicial COMPLETA");
-          }
-        );
+        setCargaTerminada(true);
       } catch (e) {
         console.error("❌ Error cargando alertas:", e);
       }
@@ -596,7 +597,9 @@ export default function Casos() {
     return () => {
       cancel = true;
     };
-  }, []);
+  }, []); // 🔥 SIN DEPENDENCIAS
+
+
 
   useEffect(() => {
     const socket = io(SOCKET_URL, {
@@ -833,11 +836,10 @@ export default function Casos() {
                     }}
                     disabled={detalleCierre.trim().length < 50}
                     className={`text-xs px-3 py-1 rounded text-white
-    ${
-      detalleCierre.trim().length < 50
-        ? "bg-gray-400 cursor-not-allowed"
-        : "bg-green-600 hover:bg-green-700"
-    }
+    ${detalleCierre.trim().length < 50
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-green-600 hover:bg-green-700"
+                      }
   `}
                   >
                     Cerrar caso
