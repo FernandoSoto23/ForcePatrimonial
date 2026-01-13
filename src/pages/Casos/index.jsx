@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, useReducer } from "react";
+
 import { io } from "socket.io-client";
 import { ShieldAlert, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "react-toastify";
@@ -17,6 +18,8 @@ import UnidadSinSenal from "./components/UnidadSinSenal";
 import { detectarGeocercasParaAlerta } from "./utils/geocercasDetector";
 import { tsCaso, esPanico } from "./utils/casos";
 import { obtenerUnitIdDesdeNombre } from "./utils/unidades";
+import CasoActivoCard from "./components/CasoActivoCard";
+import CasoCriticoCard from "./components/CasoCriticoCard";
 import {
   normalize,
   safeDecode,
@@ -40,7 +43,6 @@ import { jwtDecode } from "jwt-decode";
 ============================================================ */
 const API_URL = "https://apipx.onrender.com";
 const SOCKET_URL = "https://apipx.onrender.com";
-
 const VENTANA = 10 * 60 * 1000; // 10 minutos para correlación
 const DEDUP_TTL = 90 * 1000; // 90s para evitar duplicados API+WS / reenvíos
 const SLTA_LABEL = {
@@ -49,11 +51,88 @@ const SLTA_LABEL = {
   T: "Taller",
   A: "Agencia",
 };
+function casosReducer(state, action) {
+  switch (action.type) {
+    case "ADD_ALERTA": {
+      const { casoId, payload } = action;
+      const copia = { ...state };
+
+      let actual = copia[casoId];
+
+      // 🟢 CASO NUEVO
+      if (!actual) {
+        actual = payload.base;
+      } else {
+        const nuevoEvento = payload.base.eventos[0];
+
+        // 🛑 DEDUPLICACIÓN POR ID
+        const yaExiste = actual.eventos.some(
+          (e) => e.id === nuevoEvento.id
+        );
+
+        if (yaExiste) return state;
+
+        actual.eventos.push(nuevoEvento);
+
+        const t = nuevoEvento.tipoNorm;
+        actual.repeticiones[t] = (actual.repeticiones[t] || 0) + 1;
+      }
+
+      /* ===============================
+         🔥 REGLA FINAL (SIMPLE Y CORRECTA)
+      =============================== */
+
+      // 🚨 PÁNICO
+      actual.esPanico = esPanico(actual);
+
+      // 🧠 combinación UI
+      actual.combinacion = Object.keys(actual.repeticiones)
+        .sort((a, b) => actual.repeticiones[b] - actual.repeticiones[a])
+        .join(" + ");
+
+      const totalAlertas = actual.eventos.length;
+
+      // 🔴 CRÍTICO SOLO SI:
+      // - pánico
+      // - o 2+ alertas en el caso
+      actual.critico =
+        actual.esPanico || totalAlertas >= 2;
+
+      copia[casoId] = actual;
+      return copia;
+    }
+
+    case "TOGGLE":
+      return {
+        ...state,
+        [action.caso.id]: {
+          ...action.caso,
+          expanded: !action.caso.expanded,
+        },
+      };
+
+    case "REMOVE": {
+      const out = { ...state };
+      delete out[action.casoId];
+      return out;
+    }
+
+    case "CLEAR_CRITICOS":
+      return Object.fromEntries(
+        Object.entries(state).filter(([, v]) => !v.critico)
+      );
+
+    default:
+      return state;
+  }
+}
+
+
 
 export default function Casos() {
   /* VARIABLES DE ESTADO */
 
-  const [casos, setCasos] = useState({});
+  const [casos, dispatchCasos] = useReducer(casosReducer, {});
   const sirena = useRef(null);
   const [showMsg, setShowMsg] = useState(false);
   const [casoSeleccionado, setCasoSeleccionado] = useState(null);
@@ -80,12 +159,14 @@ export default function Casos() {
   const unidadesUsuarioRef = useRef(new Set());
   const unidadValidaCacheRef = useRef(new Map());
   const unidadesMapRef = useRef(new Map());
-
+  const bufferRef = useRef([]);
   const { units, loading: loadingUnits } = useUnits();
 
   /* USE MEMO */
   const lista = useMemo(() => {
-    return Object.values(casos).sort((a, b) => tsCaso(b) - tsCaso(a));
+    return Object.values(casos)
+      .filter(c => Array.isArray(c.eventos))
+      .sort((a, b) => tsCaso(b) - tsCaso(a));
   }, [casos]);
   const activos = useMemo(() => lista.filter((c) => !c.critico), [lista]);
 
@@ -157,16 +238,10 @@ export default function Casos() {
     if (!mensaje || !unidad || !tipo) return;
 
     const key = normalize(unidad);
-
-    // 🔐 filtrar por unidades del usuario
     if (!unidadesUsuarioRef.current.has(key)) return;
 
-    // 🗺 unitId ÚNICO Y CONFIABLE
     const unitId = unidadesMapRef.current.get(key);
-    if (!unitId) {
-      console.warn("⚠️ Unidad sin unitId:", unidad);
-      return;
-    }
+    if (!unitId) return;
 
     const tsRx = Date.now();
     let tsInc = tsRx;
@@ -180,80 +255,48 @@ export default function Casos() {
 
     const bloqueHora = obtenerBloqueHora(tsInc);
     const casoId = `${unidad}_${bloqueHora}`;
-    const msgNorm = normalizarMensaje(mensaje);
     const tipoNorm = normalize(tipo);
     const alertaId = data.id;
 
-    const coords = extraerLatLng(mensaje);
-    const geocercasDetectadas = coords
-      ? detectarGeocercasParaAlerta(coords.lat, coords.lng)
-      : [];
-
-    setCasos((prev) => {
-      const copia = { ...prev };
-
-      const actual = copia[casoId] || {
-        id: casoId,
-        unidad,
-        unitId, // ✅ YA NO SE PIERDE
-        eventos: [],
-        repeticiones: {},
-        critico: false,
-        expanded: false,
-        estado: "NUEVO",
-      };
-
-      const yaExiste = actual.eventos.some((e) => {
-        if (alertaId != null && e.id != null) {
-          return String(e.id) === String(alertaId);
-        }
-        if (normalize(e.tipo) !== tipoNorm) return false;
-        const eMsgNorm = normalizarMensaje(e.mensaje);
-        return eMsgNorm === msgNorm && Math.abs(e.tsRx - tsRx) < DEDUP_TTL;
-      });
-
-      if (!yaExiste) {
-        actual.eventos.push({
-          id: alertaId,
+    dispatchCasos({
+      type: "ADD_ALERTA",
+      casoId,
+      payload: {
+        base: {
+          id: casoId,
           unidad,
-          tipo,
-          mensaje,
-          tsRx,
-          tsInc,
-          geocercaSLTA: data.geocerca_slta || null,
-          geocercas_json: data.geocercas_json || null,
-          geocercas_detectadas: geocercasDetectadas,
-        });
-      }
-
-      const reps = {};
-      for (const e of actual.eventos) {
-        const k = normalize(e.tipo);
-        reps[k] = (reps[k] || 0) + 1;
-      }
-
-      actual.repeticiones = reps;
-
-      const tiposUnicos = Object.keys(reps);
-      const combinacion =
-        tiposUnicos.length >= 2 ? tiposUnicos.join(" + ") : undefined;
-
-      const critico =
-        Boolean(combinacion) || Object.values(reps).some((n) => n >= 2);
-
-      if (!actual.critico && critico) {
-        sirena.current?.play().catch(() => {});
-      }
-
-      actual.critico = critico;
-      actual.combinacion = combinacion;
-
-      actual.eventos.sort((a, b) => b.tsInc - a.tsInc);
-
-      copia[casoId] = actual;
-      return copia;
+          unitId,
+          eventos: [
+            {
+              id: alertaId,
+              tipo,
+              tipoNorm,
+              mensaje,
+              tsRx,
+              tsInc,
+              fechaHoraFmt: formatearFechaHora(mensaje),
+              lugar: extraerLugar(mensaje),
+              velocidad: extraerVelocidad(mensaje),
+              mapsUrl: extraerMapsUrl(mensaje),
+              geocercaSLTA: data.geocerca_slta ?? null,
+              geocercas_json: data.geocercas_json ?? null,
+            },
+          ],
+          repeticiones: { [tipoNorm]: 1 },
+          expanded: false,
+          estado: "NUEVO",
+          zonas: extraerZonas(data.geocercas_json),
+        },
+        // 👇 NO mandes estos valores
+        eventos: undefined,
+        repeticiones: undefined,
+        combinacion: undefined,
+        zonas: extraerZonas(data.geocercas_json),
+      },
     });
+
   };
+
 
   const resumenReps = (reps) => {
     const entries = Object.entries(reps || {});
@@ -279,21 +322,51 @@ export default function Casos() {
     return Object.values(protocolosEjecutados).some(Boolean);
   };
   function cerrarModalYEliminarCaso(casoId) {
-    // 1️⃣ cerrar modal PRIMERO
+    // 1️⃣ cerrar modales
     setCasoSeleccionado(null);
     setCasoCriticoSeleccionado(null);
 
-    // 2️⃣ limpiar texto
+    // 2️⃣ limpiar estado auxiliar
     setDetalleCierre("");
     resetearProtocolos();
 
-    // 3️⃣ eliminar caso del estado
-    setCasos((prev) => {
-      const copia = { ...prev };
-      delete copia[casoId];
-      return copia;
+    // 3️⃣ eliminar el caso (AQUÍ VA)
+    dispatchCasos({
+      type: "REMOVE",
+      casoId,
     });
   }
+
+  const toggleCaso = useCallback((caso) => {
+    dispatchCasos({ type: "TOGGLE", caso });
+  }, []);
+
+  const analizarCaso = useCallback((caso) => {
+    setCasoSeleccionado(caso);
+  }, []);
+
+  const verMapa = useCallback((caso) => {
+    setMapaUnidad({
+      unitId: caso.unitId,
+      unidad: caso.unidad,
+      alerta: caso.eventos[0],
+    });
+  }, []);
+
+  const llamarOperadorCb = useCallback(async (evento) => {
+    try {
+      await fetch("https://apipx.onrender.com/iaVoice/llamar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          telefono: "+526681515406",
+          contexto: evento,
+        }),
+      });
+    } catch (e) {
+      toast.error("No se pudo realizar la llamada al operador");
+    }
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
@@ -387,6 +460,22 @@ export default function Casos() {
       cancel = true;
     };
   }, []);
+  useEffect(() => {
+    const flush = () => {
+      if (bufferRef.current.length === 0) return;
+
+      // 🔥 procesar todas juntas
+      bufferRef.current.forEach((alerta) => {
+        procesarAlerta(alerta);
+      });
+
+      bufferRef.current = [];
+    };
+
+    const interval = setInterval(flush, 200);
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const socket = io(SOCKET_URL, {
@@ -395,9 +484,8 @@ export default function Casos() {
     });
 
     socket.on("nueva_alerta", (a) => {
-      // prioridad a lo que manda backend (unitName/alertType/message)
-      procesarAlerta({
-        id: a.id ?? a.alertaId ?? a.alert_id ?? a.id_alerta, // ✅ por si lo mandan con otro nombre
+      bufferRef.current.push({
+        id: a.id ?? a.alertaId ?? a.id_alerta,
         mensaje: a.message ?? a.mensaje ?? "",
         unidad: a.unitName ?? a.unidad ?? "",
         tipo: a.alertType ?? a.tipo ?? "",
@@ -422,6 +510,7 @@ export default function Casos() {
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen grid grid-cols-2 gap-6 text-black mt-10">
+
       {casoCriticoSeleccionado && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 mt-10">
           <div className="bg-white rounded-xl w-[1000px] max-w-full p-6 shadow-2xl mt-10 max-h-[80vh] overflow-y-auto">
@@ -767,11 +856,10 @@ export default function Casos() {
                 }}
                 disabled={detalleCierre.trim().length < 50}
                 className={`text-xs px-4 py-1 rounded text-white
-    ${
-      detalleCierre.trim().length < 50
-        ? "bg-gray-400 cursor-not-allowed"
-        : "bg-red-600 hover:bg-red-700"
-    }
+    ${detalleCierre.trim().length < 50
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-red-600 hover:bg-red-700"
+                  }
   `}
               >
                 Cerrar caso crítico
@@ -923,11 +1011,10 @@ export default function Casos() {
                 }}
                 disabled={detalleCierre.trim().length < 50}
                 className={`text-xs px-3 py-1 rounded text-white
-    ${
-      detalleCierre.trim().length < 50
-        ? "bg-gray-400 cursor-not-allowed"
-        : "bg-green-600 hover:bg-green-700"
-    }
+    ${detalleCierre.trim().length < 50
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-green-600 hover:bg-green-700"
+                  }
   `}
               >
                 Cerrar caso
@@ -942,7 +1029,13 @@ export default function Casos() {
       {/* ACTIVOS */}
       <div className="bg-white rounded-xl shadow p-4 h-[calc(100vh-140px)] flex flex-col">
         <div className="flex justify-between mb-4 items-center">
-          <h2 className="text-xl font-semibold">⚡ Alertas</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-semibold">⚡ Alertas</h2>
+
+            <span className="bg-green-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+              {activos.length}
+            </span>
+          </div>
           <div className="mb-3 p-3 rounded-md bg-gray-200 text-xs text-gray-800">
             <div>
               Total recibidas: <strong>{totalAlertas}</strong>
@@ -969,228 +1062,33 @@ export default function Casos() {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto pr-2">
-          {activos.map((c) => {
-            const ultimoEvento = c.eventos[0];
-            const slta = ultimoEvento?.geocercaSLTA;
-            const panico = esPanico(c);
-            const SLTA_LABEL = {
-              S: "Sucursal",
-              L: "Local",
-              T: "Taller",
-              A: "Agencia",
-            };
-            const zonas = extraerZonas(c.eventos[0]?.geocercas_json);
-            return (
-              <div
-                key={c.id}
-                className={`mb-3 p-4 rounded-lg border transition-all
-    ${
-      panico
-        ? "bg-red-50 border-red-400 border-l-8 border-l-red-600"
-        : slta
-        ? "bg-green-50 border-green-400 border-l-8 border-l-green-700"
-        : "bg-white border-gray-300"
-    }
-  `}
-              >
-                {c.eventos[0]?.geocercas_detectadas?.length > 0 && (
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {c.eventos[0].geocercas_detectadas.map((z, i) => (
-                      <span
-                        key={i}
-                        className="inline-flex items-center px-2 py-0.5 rounded-full
-        bg-blue-700 text-white text-[10px] font-semibold"
-                      >
-                        📍 {z.name}aaa
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* BADGE SLTA */}
-                {slta && (
-                  <div className="mb-2 inline-flex items-center gap-2 px-2 py-1 rounded-full bg-green-700 text-white text-[11px] font-bold">
-                    🔐 Zona SLTA · {SLTA_LABEL[slta]}
-                  </div>
-                )}
-                {zonas.length > 0 && (
-                  <div className="mb-2 flex flex-wrap gap-1">
-                    {zonas.map((z) => (
-                      <span
-                        key={z.id}
-                        className="inline-flex items-center px-2 py-0.5 rounded-full
-                   bg-blue-600 text-white text-[10px] font-semibold"
-                      >
-                        📍 {z.name}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {panico && (
-                  <div
-                    className="mb-2 inline-flex items-center gap-2 px-2 py-1 rounded-full
-    bg-red-600 text-white text-[11px] font-bold"
-                  >
-                    🚨 ALERTA DE PÁNICO
-                  </div>
-                )}
-                {/* HEADER */}
-                <div
-                  onClick={() =>
-                    setCasos((p) => ({
-                      ...p,
-                      [c.id]: { ...c, expanded: !c.expanded },
-                    }))
-                  }
-                  className="cursor-pointer flex justify-between items-center"
-                >
-                  <div className="min-w-0">
-                    <div className="text-[11px] text-gray-500">
-                      Estado del caso: <strong>{c.estado}</strong>
-                    </div>
-
-                    <div className="font-bold truncate text-green-800">
-                      {c.unidad}
-                    </div>
-
-                    <div className="text-sm text-gray-600 truncate">
-                      {resumenReps(c.repeticiones)}
-                    </div>
-                  </div>
-
-                  {c.expanded ? <ChevronUp /> : <ChevronDown />}
-                </div>
-
-                {/* DETALLE */}
-                {c.expanded && (
-                  <div className="mt-3 border-t pt-3 text-xs space-y-3">
-                    {c.eventos.map((e, i) => (
-                      <div key={`${e.id ?? "noid"}-${i}`} className="pt-2">
-                        {/* título tipo */}
-                        <strong className="text-gray-900">
-                          {normalize(e.tipo)}
-                        </strong>
-
-                        {/* ID alerta */}
-                        <div className="text-[11px] text-gray-500 mt-1">
-                          ID alerta: {e.id ?? "—"}
-                        </div>
-
-                        {/* Info extra (fecha/hora, lugar, velocidad) */}
-                        <div className="space-y-1 text-[11px] text-gray-700 mt-2">
-                          {formatearFechaHora(e.mensaje) && (
-                            <>
-                              <div>
-                                <strong>Fecha:</strong>{" "}
-                                {formatearFechaHora(e.mensaje).fecha}
-                              </div>
-                              <div>
-                                <strong>Hora:</strong>{" "}
-                                {formatearFechaHora(e.mensaje).hora}
-                              </div>
-                            </>
-                          )}
-
-                          {extraerLugar(e.mensaje) && (
-                            <div>
-                              <strong>Lugar:</strong> {extraerLugar(e.mensaje)}
-                            </div>
-                          )}
-
-                          {extraerVelocidad(e.mensaje) && (
-                            <div>
-                              <strong>Velocidad:</strong>{" "}
-                              {extraerVelocidad(e.mensaje)}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Mensaje completo */}
-                        <MensajeExpandable mensaje={e.mensaje} />
-
-                        <div className="flex w-full gap-3 items-center justify-between">
-                          {/* Maps */}
-                          {extraerMapsUrl(e.mensaje) && (
-                            <a
-                              href={extraerMapsUrl(e.mensaje)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="mt-2 text-[11px] text-sm font-bold bg-black  px-3 py-3 h-12 text-white rounded font-bold"
-                            >
-                              Google Maps
-                            </a>
-                          )}
-
-                          {/* Botón analizar */}
-                          <button
-                            onClick={() => setCasoSeleccionado(c)}
-                            className="mt-2 bg-green-700 hover:bg-green-800 text-white px-3 py-1 rounded h-12 text-sm font-bold"
-                          >
-                            Analizar caso
-                          </button>
-                          <button
-                            onClick={async () => {
-                              console.log("📞 BOTÓN LLAMAR PRESIONADO");
-                              try {
-                                const resp = await fetch(
-                                  "https://apipx.onrender.com/iaVoice/llamar",
-                                  {
-                                    method: "POST",
-                                    headers: {
-                                      "Content-Type": "application/json",
-                                    },
-                                    body: JSON.stringify({
-                                      telefono: "+526681515406",
-                                      contexto: e,
-                                    }),
-                                  }
-                                );
-
-                                console.log("📡 RESPUESTA HTTP:", resp.status);
-
-                                const data = await resp.json();
-                                console.log("📦 DATA:", data);
-                              } catch (e) {
-                                console.error("❌ ERROR FETCH:", e);
-                              }
-                            }}
-                          >
-                            📞 Llamar operador
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              console.log("VER EN MAPA:", c);
-                              if (!c.unitId) {
-                                toast.error(
-                                  "No se pudo identificar la unidad en el mapa"
-                                );
-                                return;
-                              }
-
-                              setMapaUnidad({
-                                unitId: c.unitId,
-                                unidad: c.unidad,
-                                alerta: c.eventos[0], // 👈 ALERTA ACTIVA
-                              });
-                            }}
-                            className="mt-2 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded h-12"
-                          >
-                            🗺 Ver ubicación en tiempo real
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {activos.map((c) => (
+            <CasoActivoCard
+              key={c.id}
+              caso={c}
+              onToggle={toggleCaso}
+              onAnalizar={analizarCaso}
+              onMapa={verMapa}
+              onLlamarOperador={llamarOperadorCb}
+              resumenReps={resumenReps}
+              esPanico={esPanico}
+              extraerZonas={extraerZonas}
+              normalize={normalize}
+              formatearFechaHora={formatearFechaHora}
+              extraerLugar={extraerLugar}
+              extraerVelocidad={extraerVelocidad}
+              extraerMapsUrl={extraerMapsUrl}
+              MensajeExpandable={MensajeExpandable}
+            />
+          ))}
 
           {activos.length === 0 && (
-            <div className="text-sm text-gray-500">Sin alertas activas.</div>
+            <div className="text-sm text-gray-500">
+              Sin alertas activas.
+            </div>
           )}
         </div>
+
       </div>
       {/* IA CONVERSACIONAL */}
       {/*       <div className="mt-4 border rounded p-3 bg-gray-50">
@@ -1208,172 +1106,43 @@ export default function Casos() {
       {/* CRÍTICOS */}
       <div className="bg-red-50 rounded-xl shadow p-4 border border-red-300 h-[calc(100vh-140px)] flex flex-col">
         <div className="flex justify-between mb-4 items-center">
-          <h2 className="text-xl font-semibold text-red-700">
-            🔥 Alertas Críticas
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold text-red-700">
+              🔥 Alertas Críticas
+            </h2>
+
+            <span
+              className={`text-xs font-bold px-2 py-0.5 rounded-full text-white
+      ${criticos.length > 0 ? "bg-red-600 animate-pulse" : "bg-red-400"}
+    `}
+            >
+              {criticos.length}
+            </span>
+          </div>
+
           <button
-            onClick={() => {
-              // limpia SOLO críticos (deja activos)
-              setCasos((prev) => {
-                const out = {};
-                for (const [k, v] of Object.entries(prev)) {
-                  if (!v.critico) out[k] = v;
-                }
-                return out;
-              });
-            }}
+            onClick={() => dispatchCasos({ type: "CLEAR_CRITICOS" })}
             className="text-xs bg-red-600 text-white px-3 py-1 rounded flex gap-1 items-center"
           >
             <Trash2 size={14} /> Borrar
           </button>
         </div>
         <div className="flex-1 overflow-y-auto pr-2">
-          {criticos.map((c) => {
-            const ultimoEvento = c.eventos[0];
-            const slta = ultimoEvento?.geocercaSLTA;
-            const panico = esPanico(c);
-            const SLTA_LABEL = {
-              S: "Sucursal",
-              L: "Local",
-              T: "Taller",
-              A: "Agencia",
-            };
-            const zonas = extraerZonas(c.eventos[0]?.geocercas_json);
-            return (
-              <div
-                key={c.id}
-                className={`mb-3 p-4 rounded-lg border transition-all
-    ${
-      panico
-        ? "bg-red-50 border-red-500 border-l-8 border-l-red-700 "
-        : slta
-        ? "bg-green-50 border-green-400 border-l-8 border-l-green-700"
-        : "bg-white border-gray-300"
-    }
-  `}
-              >
-                {/* BADGE SLTA */}
-                {slta && (
-                  <div className="mb-1 inline-flex items-center gap-2 px-2 py-1 rounded-full bg-purple-700 text-white text-[11px] font-bold">
-                    🔐 Zona segura · {SLTA_LABEL[slta]}
-                  </div>
-                )}
-                {zonas.length > 0 && (
-                  <div className="mb-2 flex flex-wrap gap-1">
-                    {zonas.map((z) => (
-                      <span
-                        key={z.id}
-                        className="inline-flex items-center px-2 py-0.5 rounded-full
-                   bg-blue-600 text-white text-[10px] font-semibold"
-                      >
-                        📍 {z.name}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {panico && (
-                  <div
-                    className="mb-2 inline-flex items-center gap-2 px-2 py-1 rounded-full
-    bg-red-700 text-white text-[11px] font-bold "
-                  >
-                    🚨 ALERTA DE PÁNICO
-                  </div>
-                )}
-                {/* UNIDAD */}
-                <div
-                  className={`font-bold ${
-                    slta ? "text-purple-800" : "text-red-700"
-                  }`}
-                >
-                  {c.unidad}
-                </div>
+          {criticos.map((c) => (
+            <CasoCriticoCard
+              key={c.id}
+              caso={c}
+              onProtocolo={setCasoCriticoSeleccionado}
+              esPanico={esPanico}
+              extraerZonas={extraerZonas}
+              formatearFechaHoraCritica={formatearFechaHoraCritica}
+              extraerLugar={extraerLugar}
+              extraerVelocidad={extraerVelocidad}
+              extraerMapsUrl={extraerMapsUrl}
+              MensajeExpandable={MensajeExpandable}
+            />
+          ))}
 
-                {/* COMBINACIÓN / REPETICIÓN */}
-                <div
-                  className={`text-sm mt-1 ${
-                    slta ? "text-purple-700" : "text-red-600"
-                  }`}
-                >
-                  {c.combinacion
-                    ? c.combinacion
-                    : `REPETIDO: ${Object.entries(c.repeticiones)
-                        .filter(([, n]) => n >= 2)
-                        .map(([t, n]) => `${t} (${n})`)
-                        .join(" • ")}`}
-                </div>
-
-                {/* DATOS CONTEXTUALES */}
-                <div className="space-y-1 text-[11px] text-gray-700 mt-2">
-                  {ultimoEvento?.tsInc && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <strong>Fecha:</strong>{" "}
-                        {formatearFechaHoraCritica(ultimoEvento.tsInc).fecha}
-                      </div>
-
-                      <div>
-                        <strong>Hora:</strong>{" "}
-                        {formatearFechaHoraCritica(ultimoEvento.tsInc).hora}
-                      </div>
-                    </div>
-                  )}
-
-                  {extraerLugar(ultimoEvento?.mensaje) && (
-                    <div>
-                      <strong>Lugar:</strong>{" "}
-                      {extraerLugar(ultimoEvento.mensaje)}
-                    </div>
-                  )}
-
-                  {extraerVelocidad(ultimoEvento?.mensaje) && (
-                    <div>
-                      <strong>Velocidad:</strong>{" "}
-                      {extraerVelocidad(ultimoEvento.mensaje)}
-                    </div>
-                  )}
-                </div>
-
-                {/* MENSAJE */}
-                {ultimoEvento?.mensaje && (
-                  <>
-                    <div className="text-xs mt-2 whitespace-pre-wrap text-gray-800">
-                      <MensajeExpandable mensaje={ultimoEvento.mensaje} />
-                    </div>
-
-                    {extraerMapsUrl(ultimoEvento.mensaje) && (
-                      <a
-                        href={extraerMapsUrl(ultimoEvento.mensaje)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 underline text-[11px] mt-1 inline-block"
-                      >
-                        Ver ubicación en Google Maps
-                      </a>
-                    )}
-                  </>
-                )}
-
-                {/* ID ALERTA */}
-                <div className="text-[11px] text-gray-600 mt-2">
-                  ID alerta más reciente: {ultimoEvento?.id ?? "—"}
-                </div>
-
-                {/* BOTÓN PROTOCOLO */}
-                <button
-                  onClick={() => setCasoCriticoSeleccionado(c)}
-                  className={`mt-3 text-xs text-white px-3 py-1 rounded flex gap-1 items-center
-          ${
-            slta
-              ? "bg-purple-700 hover:bg-purple-800"
-              : "bg-red-600 hover:bg-red-700"
-          }
-        `}
-                >
-                  <ShieldAlert size={14} /> Protocolo
-                </button>
-              </div>
-            );
-          })}
 
           {criticos.length === 0 && (
             <div className="text-sm text-red-700/70">
