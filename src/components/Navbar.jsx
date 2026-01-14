@@ -21,7 +21,7 @@ export default function Navbar({ user }) {
   const categories = {
     Monitoreo: [
       { href: "/", label: "Dashboard" },
-      { href: "/mapa", label: "GlobalTrack" },
+      { href: "/globaltrack", label: "GlobalTrack" },
       { href: "/dispositivos", label: "Dispositivos" },
       { href: "/casos", label: "Casos" },
       { href: "/monitoreopro", label: "MonitoreoPro" },
