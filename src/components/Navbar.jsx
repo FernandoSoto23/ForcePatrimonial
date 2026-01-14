@@ -24,7 +24,8 @@ export default function Navbar({ user }) {
       { href: "/mapa", label: "GlobalTrack" },
       { href: "/dispositivos", label: "Dispositivos" },
       { href: "/casos", label: "Casos" },
-      { href: "/casosv2", label: "Casosv2" },
+      { href: "/monitoreopro", label: "MonitoreoPro" },
+      /* { href: "/casosv2", label: "Casosv2" }, */
     ],
   };
 

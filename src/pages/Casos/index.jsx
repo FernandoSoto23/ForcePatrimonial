@@ -4,7 +4,7 @@ import { io } from "socket.io-client";
 import { ShieldAlert, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "react-toastify";
 import { useUnits } from "../../context/UnitsContext";
-
+import Swal from "sweetalert2";
 import ProtocolLauncher from "./components/ProtocoloLauncher";
 import MapaUnidadLive from "./components/MapaUnidadLive";
 import { loadGeocercasOnce } from "./utils/geocercasCache";
@@ -51,6 +51,15 @@ const SLTA_LABEL = {
   T: "Taller",
   A: "Agencia",
 };
+const MOTIVOS_CIERRE = [
+  { value: "FALSA_ALARMA", label: "Falsa alarma" },
+  { value: "EVENTO_ATENDIDO", label: "Evento atendido sin novedad" },
+  { value: "CONTACTO_CON_OPERADOR", label: "Contacto con operador / chofer" },
+  { value: "PROBLEMA_TECNICO", label: "Problema técnico del dispositivo" },
+  { value: "DESVIO_JUSTIFICADO", label: "Desvío de ruta justificado" },
+  { value: "DETENCION_AUTORIZADA", label: "Detención autorizada" },
+  { value: "OTRO", label: "Otro (requiere observación)" },
+];
 function casosReducer(state, action) {
   switch (action.type) {
     case "ADD_ALERTA": {
@@ -138,6 +147,9 @@ export default function Casos() {
   const [casoSeleccionado, setCasoSeleccionado] = useState(null);
   const [casoCriticoSeleccionado, setCasoCriticoSeleccionado] = useState(null);
   const [detalleCierre, setDetalleCierre] = useState("");
+  const [motivoCierre, setMotivoCierre] = useState("");
+  const [observacionesCierre, setObservacionesCierre] = useState("");
+
   const [usuario, setUsuario] = useState(null);
   const [mapaUnidad, setMapaUnidad] = useState(null);
   const [totalAlertas, setTotalAlertas] = useState(0);
@@ -171,6 +183,14 @@ export default function Casos() {
   const activos = useMemo(() => lista.filter((c) => !c.critico), [lista]);
 
   const criticos = useMemo(() => lista.filter((c) => c.critico), [lista]);
+  const detalleCierreFinal = useMemo(() => {
+    if (!motivoCierre) return "";
+    return `
+Motivo: ${motivoCierre}
+${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
+`.trim();
+  }, [motivoCierre, observacionesCierre]);
+
   /* FUNCIONES */
   function procesarEnLotes(
     items,
@@ -327,7 +347,8 @@ export default function Casos() {
     setCasoCriticoSeleccionado(null);
 
     // 2️⃣ limpiar estado auxiliar
-    setDetalleCierre("");
+    setMotivoCierre("");
+    setObservacionesCierre("");
     resetearProtocolos();
 
     // 3️⃣ eliminar el caso (AQUÍ VA)
@@ -461,7 +482,7 @@ export default function Casos() {
     return () => {
       cancel = true;
     };
-}, [loadingUnits, units]);
+  }, [loadingUnits, units]);
   useEffect(() => {
     const flush = () => {
       if (bufferRef.current.length === 0) return;
@@ -509,12 +530,32 @@ export default function Casos() {
     return () => socket.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEffect(() => {
+    if (casoCriticoSeleccionado || casoSeleccionado || mapaUnidad) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "auto";
+    }
+
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, [casoCriticoSeleccionado, casoSeleccionado, mapaUnidad]);
 
   return (
-    <div className="p-6 bg-gray-100 min-h-screen grid grid-cols-2 gap-6 text-black mt-10">
+    <div
+      className={`p-6 bg-gray-100 min-h-screen grid grid-cols-2 gap-6 text-black mt-10
+    ${casoCriticoSeleccionado || casoSeleccionado
+  ? "pointer-events-none"
+  : ""
+}
+  `}
+    >
 
       {casoCriticoSeleccionado && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 mt-10">
+
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 mt-10 pointer-events-auto">
+
           <div className="bg-white rounded-xl w-[1000px] max-w-full p-6 shadow-2xl mt-10 max-h-[80vh] overflow-y-auto">
             {/* HEADER */}
             <div className="flex justify-between items-start mb-4">
@@ -773,16 +814,39 @@ export default function Casos() {
                 <span className="text-red-500">*</span>
               </label>
 
-              <textarea
-                value={detalleCierre}
-                onChange={(e) => setDetalleCierre(e.target.value)}
-                rows={4}
-                placeholder="Describe las acciones realizadas y el motivo del cierre del caso (mínimo 50 caracteres)"
-                className="w-full bg-white text-black border border-gray-300 rounded-md p-2 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
+              <div className="mt-4">
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Motivo de cierre <span className="text-red-500">*</span>
+                </label>
+
+                <select
+                  value={motivoCierre}
+                  onChange={(e) => setMotivoCierre(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md p-2 text-xs bg-white"
+                >
+                  <option value="">Selecciona un motivo</option>
+                  {MOTIVOS_CIERRE.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+
+                {/* 👇 SOLO SI ES OTRO */}
+                {motivoCierre === "OTRO" && (
+                  <textarea
+                    value={observacionesCierre}
+                    onChange={(e) => setObservacionesCierre(e.target.value)}
+                    rows={3}
+                    placeholder="Describe brevemente el motivo"
+                    className="mt-2 w-full border border-gray-300 rounded-md p-2 text-xs"
+                  />
+                )}
+              </div>
+
 
               <div className="text-[10px] text-gray-500 mt-1">
-                {detalleCierre.length} / 50 caracteres
+                {detalleCierreFinal.length} caracteres
               </div>
             </div>
 
@@ -790,17 +854,16 @@ export default function Casos() {
               <button
                 onClick={() => {
                   resetearProtocolos();
-                  setDetalleCierre("");
+                  setMotivoCierre("");
+                  setObservacionesCierre("");
                   setCasoCriticoSeleccionado(null);
                 }}
                 className="text-xs bg-gray-300 px-4 py-1 rounded"
               >
                 Cancelar
               </button>
-
               <button
                 onClick={async () => {
-                  // 🚫 Validación fuerte
                   // 🚫 0) VALIDAR PROTOCOLOS EJECUTADOS
                   if (!hayAlMenosUnProtocoloEjecutado()) {
                     toast.error(
@@ -809,56 +872,73 @@ export default function Casos() {
                     return;
                   }
 
-                  // 🚫 1) VALIDACIÓN DE DESCRIPCIÓN
-                  if (!detalleCierre || detalleCierre.trim().length < 50) {
-                    toast.error(
-                      "La descripción debe tener al menos 50 caracteres"
-                    );
+                  // 🚫 1) VALIDAR MOTIVO
+                  if (!motivoCierre) {
+                    toast.error("Debes seleccionar un motivo de cierre");
                     return;
                   }
 
-                  const confirmar = window.confirm(
-                    "¿Confirmas el cierre del caso crítico? Esta acción cerrará todas las alertas asociadas."
-                  );
+                  // 🚫 2) VALIDAR OBSERVACIONES SI ES OTRO
+                  if (
+                    motivoCierre === "OTRO" &&
+                    observacionesCierre.trim().length < 10
+                  ) {
+                    toast.error("Debes especificar el motivo del cierre");
+                    return;
+                  }
 
-                  if (!confirmar) return;
+                  const result = await Swal.fire({
+                    title: "Cerrar caso crítico",
+                    html: `
+        <p>Estás a punto de cerrar un <b>caso crítico</b>.</p>
+        <p>Esta acción cerrará <b>todas las alertas asociadas</b>.</p>
+      `,
+                    icon: "warning",
+                    showCancelButton: true,
+                    confirmButtonText: "Sí, cerrar caso",
+                    cancelButtonText: "Cancelar",
+                    confirmButtonColor: "#dc2626",
+                    cancelButtonColor: "#6b7280",
+                  });
+
+                  if (!result.isConfirmed) return;
 
                   try {
-                    const resp = await fetch(
-                      `${API_URL}/alertas/cerrar-multiples`,
-                      {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({
-                          alertas: casoCriticoSeleccionado.eventos.map(
-                            (e) => e.id
-                          ),
-                          id_usuario: usuario.id,
-                          nombre_usuario: usuario.name,
-                          detalle_cierre: detalleCierre, // ✅ MISMA NOTA PARA TODAS
-                        }),
-                      }
-                    );
+                    const resp = await fetch(`${API_URL}/alertas/cerrar-multiples`, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({
+                        alertas: casoCriticoSeleccionado.eventos.map((e) => e.id),
+                        id_usuario: usuario.id,
+                        nombre_usuario: usuario.name,
+                        detalle_cierre: `
+Motivo: ${motivoCierre}
+${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
+          `.trim(),
+                      }),
+                    });
 
                     if (!resp.ok) {
                       const errorText = await resp.text();
                       throw new Error(errorText);
                     }
 
-                    // 🧹 quitar el caso completo de la UI
                     cerrarModalYEliminarCaso(casoCriticoSeleccionado.id);
-
                     toast.success("✅ Caso crítico cerrado correctamente");
                   } catch (error) {
                     console.error("❌ Error cerrando caso crítico:", error);
                     toast.error("No se pudo cerrar el caso crítico");
                   }
                 }}
-                disabled={detalleCierre.trim().length < 50}
-                className={`text-xs px-4 py-1 rounded text-white
-    ${detalleCierre.trim().length < 50
+                disabled={
+                  !motivoCierre ||
+                  (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
+                }
+                className={`text-xs px-4 py-1 rounded text-white transition
+    ${!motivoCierre ||
+                    (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
                     ? "bg-gray-400 cursor-not-allowed"
                     : "bg-red-600 hover:bg-red-700"
                   }
@@ -866,6 +946,7 @@ export default function Casos() {
               >
                 Cerrar caso crítico
               </button>
+
             </div>
           </div>
         </div>
@@ -1135,6 +1216,9 @@ export default function Casos() {
               key={c.id}
               caso={c}
               onProtocolo={setCasoCriticoSeleccionado}
+              onAnalizar={analizarCaso}
+              onMapa={verMapa}
+              onLlamarOperador={llamarOperadorCb}
               esPanico={esPanico}
               extraerZonas={extraerZonas}
               formatearFechaHoraCritica={formatearFechaHoraCritica}

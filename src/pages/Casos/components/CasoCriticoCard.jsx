@@ -4,6 +4,9 @@ import { ShieldAlert } from "lucide-react";
 function CasoCriticoCard({
     caso,
     onProtocolo,
+    onAnalizar,
+    onMapa,
+    onLlamarOperador,
     esPanico,
     extraerZonas,
     formatearFechaHoraCritica,
@@ -58,19 +61,15 @@ function CasoCriticoCard({
                 {caso.unidad}
             </div>
 
-            <div
-                className={`text-sm mt-1 ${slta ? "text-purple-700" : "text-red-600"}`}
-            >
-                {Object.values(caso.repeticiones).some((n) => n >= 2) && (
-                    <div className="text-sm mt-1 text-red-700 font-semibold">
-                        REPETIDO:&nbsp;
-                        {Object.entries(caso.repeticiones)
-                            .filter(([, n]) => n >= 2)
-                            .map(([t, n]) => `${t} (${n})`)
-                            .join(" · ")}
-                    </div>
-                )}
-            </div>
+            {Object.values(caso.repeticiones).some((n) => n >= 2) && (
+                <div className="text-sm mt-1 text-red-700 font-semibold">
+                    REPETIDO:&nbsp;
+                    {Object.entries(caso.repeticiones)
+                        .filter(([, n]) => n >= 2)
+                        .map(([t, n]) => `${t} (${n})`)
+                        .join(" · ")}
+                </div>
+            )}
 
             <div className="space-y-1 text-[11px] text-gray-700 mt-2">
                 {ultimoEvento?.tsInc && (
@@ -79,7 +78,6 @@ function CasoCriticoCard({
                             <strong>Fecha:</strong>{" "}
                             {formatearFechaHoraCritica(ultimoEvento.tsInc).fecha}
                         </div>
-
                         <div>
                             <strong>Hora:</strong>{" "}
                             {formatearFechaHoraCritica(ultimoEvento.tsInc).hora}
@@ -95,7 +93,8 @@ function CasoCriticoCard({
 
                 {extraerVelocidad(ultimoEvento?.mensaje) && (
                     <div>
-                        <strong>Velocidad:</strong> {extraerVelocidad(ultimoEvento.mensaje)}
+                        <strong>Velocidad:</strong>{" "}
+                        {extraerVelocidad(ultimoEvento.mensaje)}
                     </div>
                 )}
             </div>
@@ -123,13 +122,44 @@ function CasoCriticoCard({
                 ID alerta más reciente: {ultimoEvento?.id ?? "—"}
             </div>
 
-            <button
-                onClick={() => onProtocolo(caso)}
-                className={`mt-3 text-xs text-white px-3 py-1 rounded flex gap-1 items-center
-          ${slta ? "bg-purple-700 hover:bg-purple-800" : "bg-red-600 hover:bg-red-700"}`}
-            >
-                <ShieldAlert size={14} /> Protocolo
-            </button>
+            {/* 🔥 ACCIONES */}
+            <div className="mt-3 flex flex-wrap gap-2">
+                {/* 🔍 ANALIZAR */}
+                <button
+                    onClick={() => onAnalizar(caso)}
+                    className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
+                >
+                    Analizar caso
+                </button>
+
+                {/* 📞 LLAMAR OPERADOR */}
+                <button
+                    onClick={() => onLlamarOperador(ultimoEvento)}
+                    className="text-xs bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded"
+                >
+                    Llamar operador
+                </button>
+
+                {/* 🗺 UBICACIÓN */}
+                <button
+                    onClick={() => onMapa(caso)}
+                    className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
+                >
+                    Ver ubicación en tiempo real
+                </button>
+
+                {/* 🚨 PROTOCOLO */}
+                <button
+                    onClick={() => onProtocolo(caso)}
+                    className={`text-xs text-white px-3 py-1 rounded flex gap-1 items-center
+            ${slta
+                            ? "bg-purple-700 hover:bg-purple-800"
+                            : "bg-red-600 hover:bg-red-700"
+                        }`}
+                >
+                    <ShieldAlert size={14} /> Protocolo
+                </button>
+            </div>
         </div>
     );
 }

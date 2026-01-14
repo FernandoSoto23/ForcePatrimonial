@@ -8,7 +8,7 @@ import Home from "../pages/Home";
 import Casos from "../pages/Casos";
 import Dispositivos from "../pages/Dispositivos";
 import Casosv2 from "../pages/Casosv2";
-
+import MonitoreoPro from "../pages/MonitoreoPro";
 export default function AppRouter() {
   return (
     <Routes>
@@ -41,6 +41,7 @@ export default function AppRouter() {
         <Route path="/casos" element={<Casos />} />
          <Route path="/casosv2" element={<Casosv2 />} />
         <Route path="/dispositivos" element={<Dispositivos />} />
+        <Route path="/monitoreopro" element={<MonitoreoPro />} />
       </Route>
 
       {/* =========================
