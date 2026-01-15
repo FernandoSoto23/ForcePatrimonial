@@ -159,21 +159,6 @@ async function fetchData(unitNames) {
 
     return { units, allGeofences, cross: mergedCross };
 }
-const handleCopyTipo = async () => {
-    if (!searches.length) return;
-
-    const txt = searches[0].rows
-        .map((r) => getTipo(r))
-        .join("\n");
-
-    try {
-        await navigator.clipboard.writeText(txt);
-        alert("Columna 'Tipo' copiada. Pega directo en Excel ✅");
-    } catch (e) {
-        console.error("No se pudo copiar:", e);
-        alert("No se pudo copiar automáticamente");
-    }
-};
 
 /* ======================= UI ======================= */
 
@@ -184,51 +169,6 @@ function Badge({ label }) {
         </span>
     );
 }
-const updateRowField = (searchId, rowId, field, val) => {
-    setSearches((prev) =>
-        prev.map((s) =>
-            s.id !== searchId
-                ? s
-                : {
-                    ...s,
-                    rows: s.rows.map((r) =>
-                        r.id === rowId
-                            ? {
-                                ...r,
-                                [field]: val,
-                                horaTipo:
-                                    field === "tipoManual"
-                                        ? formatHoraActual()
-                                        : r.horaTipo,
-                            }
-                            : r
-                    ),
-                }
-        )
-    );
-};
-const handleDownloadExcel = () => {
-    if (!searches.length) return;
-
-    const rows = searches[0].rows.map((r) => ({
-        Unidad: r.name,
-        Ruta: r.ruta,
-        Segmento: r.segmento,
-        Tipo: getTipo(r),
-        Hora: r.horaTipo ?? "",
-        "Última posición": fmtDT(r.t),
-        Latitud: r.lat ?? "",
-        Longitud: r.lon ?? "",
-        Geocercas: r.zones.map((z) => z.name).join(", "),
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(wb, ws, "Monitoreo");
-
-    XLSX.writeFile(wb, `Monitoreo_${Date.now()}.xlsx`);
-};
 
 /* ======================= COMPONENT ======================= */
 
@@ -237,6 +177,71 @@ export default function MonitoreoPro() {
     const [searches, setSearches] = useState([]);
     const [activeSearchId, setActiveSearchId] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [tipoFilter, setTipoFilter] = useState("");
+
+    // ✅ FIX: estas funciones deben vivir dentro del componente para usar searches/setSearches
+    const updateRowField = (searchId, rowId, field, val) => {
+        setSearches((prev) =>
+            prev.map((s) =>
+                s.id !== searchId
+                    ? s
+                    : {
+                        ...s,
+                        rows: s.rows.map((r) =>
+                            r.id === rowId
+                                ? {
+                                    ...r,
+                                    [field]: val,
+                                    horaTipo:
+                                        field === "tipoManual"
+                                            ? formatHoraActual()
+                                            : r.horaTipo,
+                                }
+                                : r
+                        ),
+                    }
+            )
+        );
+    };
+
+    const handleCopyTipo = async () => {
+        if (!searches.length) return;
+
+        const txt = searches[0].rows
+            .map((r) => getTipo(r))
+            .join("\n");
+
+        try {
+            await navigator.clipboard.writeText(txt);
+            alert("Columna 'Tipo' copiada. Pega directo en Excel ✅");
+        } catch (e) {
+            console.error("No se pudo copiar:", e);
+            alert("No se pudo copiar automáticamente");
+        }
+    };
+
+    const handleDownloadExcel = () => {
+        if (!searches.length) return;
+
+        const rows = searches[0].rows.map((r) => ({
+            Unidad: r.name,
+            Ruta: r.ruta,
+            Segmento: r.segmento,
+            Tipo: getTipo(r),
+            Hora: r.horaTipo ?? "",
+            "Última posición": fmtDT(r.t),
+            Latitud: r.lat ?? "",
+            Longitud: r.lon ?? "",
+            Geocercas: r.zones.map((z) => z.name).join(", "),
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+
+        XLSX.utils.book_append_sheet(wb, ws, "Monitoreo");
+
+        XLSX.writeFile(wb, `Monitoreo_${Date.now()}.xlsx`);
+    };
 
     const updateRow = (rowId, field, val) => {
         setSearches((prev) =>
@@ -285,7 +290,7 @@ export default function MonitoreoPro() {
         const rows = unitNames.map((name, idx) => {
             const found = unitByName.get(name.toLowerCase());
             if (!found)
-                return { id: 100000 + idx, name, zones: [], ruta: "", segmento: "" };
+                return { id: 100000 + idx, name, zones: [], ruta: "", segmento: "", tipoManual: "", horaTipo: "" };
 
             const isStale = !found.t || nowSec - found.t > MAX_AGE_SEC;
 
@@ -309,8 +314,9 @@ export default function MonitoreoPro() {
 
             return {
                 ...base,
-                tipoManual: tipo || undefined,
-                horaTipo: tipo ? formatHoraActual() : undefined,
+                // ✅ IMPORTANT: siempre string para que el input sea controlado y editable
+                tipoManual: tipo || "",
+                horaTipo: tipo ? formatHoraActual() : "",
             };
         });
 
@@ -327,6 +333,16 @@ export default function MonitoreoPro() {
     };
 
     /* ======================= RENDER ======================= */
+    const baseSearch =
+        searches.find((s) => s.id === activeSearchId) ?? searches[0];
+
+    const visibleRows = baseSearch
+        ? baseSearch.rows.filter((r) => {
+            if (!tipoFilter) return true;
+            // ✅ FIX: filtra por getTipo (respeta tipoManual), no por getAutoFlag
+            return getTipo(r) === tipoFilter;
+        })
+        : [];
 
     return (
         <div className="min-h-screen bg-white text-black p-6 mt-10">
@@ -396,10 +412,39 @@ export default function MonitoreoPro() {
                             Descargar Excel
                         </button>
                     </>
-
-
                 )}
             </div>
+
+            {/* ================= FILTRO POR TIPO ================= */}
+            {searches.length > 0 && (
+                <div className="mb-4 flex gap-2 flex-wrap items-center text-xs">
+                    <span className="text-gray-600 font-semibold">Ver:</span>
+
+                    {[
+                        { k: "", label: "Todos" },
+                        { k: "S", label: "Sucursal" },
+                        { k: "L", label: "Local" },
+                        { k: "A", label: "Agencia" },
+                        { k: "T", label: "Taller" },
+                        { k: "I", label: "Incidencia" },
+                    ].map((t) => (
+                        <button
+                            key={t.k}
+                            onClick={() => setTipoFilter(t.k)}
+                            className={`rounded-full px-4 py-1.5 border transition ${tipoFilter === t.k
+                                ? "bg-blue-600 text-white border-blue-600"
+                                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                                }`}
+                        >
+                            {t.label}
+                        </button>
+                    ))}
+
+                    <span className="ml-2 text-gray-500">
+                        {visibleRows.length} unidades
+                    </span>
+                </div>
+            )}
 
             {/* ================= TABLA ================= */}
             {searches.length > 0 && (
@@ -458,24 +503,20 @@ export default function MonitoreoPro() {
 
                         {/* ============ BODY ============ */}
                         <tbody>
-                            {searches[0].rows.map((_, rowIdx) => (
-                                <tr key={rowIdx} className="border-t hover:bg-gray-50">
+                            {visibleRows.map((row) => (
+                                <tr key={row.id} className="border-t hover:bg-gray-50">
                                     {/* UNIDAD */}
                                     <td className="sticky left-0 z-30 bg-white px-4 py-3 font-bold border-r shadow-[6px_0_12px_-8px_rgba(0,0,0,0.25)]">
-                                        {searches[0].rows[rowIdx].name}
+                                        {row.name}
                                     </td>
 
                                     {/* RUTA */}
                                     <td className="sticky left-[170px] z-30 bg-white px-4 py-3 border-r shadow-[6px_0_12px_-8px_rgba(0,0,0,0.25)]">
                                         <input
                                             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-black text-sm"
-                                            value={searches[0].rows[rowIdx].ruta}
+                                            value={row.ruta}
                                             onChange={(e) =>
-                                                updateRow(
-                                                    searches[0].rows[rowIdx].id,
-                                                    "ruta",
-                                                    e.target.value
-                                                )
+                                                updateRow(row.id, "ruta", e.target.value)
                                             }
                                         />
                                     </td>
@@ -484,11 +525,11 @@ export default function MonitoreoPro() {
                                     <td className="sticky left-[370px] z-30 bg-white px-4 py-3 border-r shadow-[6px_0_12px_-8px_rgba(0,0,0,0.25)]">
                                         <input
                                             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-black text-sm"
-                                            value={searches[0].rows[rowIdx].segmento}
+                                            value={row.segmento}
                                             onChange={(e) =>
                                                 updateRowField(
-                                                    searches[0].id,
-                                                    searches[0].rows[rowIdx].id,
+                                                    baseSearch.id,
+                                                    row.id,
                                                     "segmento",
                                                     e.target.value
                                                 )
@@ -498,7 +539,7 @@ export default function MonitoreoPro() {
 
                                     {/* POR BÚSQUEDA */}
                                     {searches.map((s, searchIdx) => {
-                                        const baseUnit = searches[0].rows[rowIdx];
+                                        const baseUnit = row;
 
                                         const u =
                                             s.rows.find((r) => r.id === baseUnit.id) ??
@@ -517,7 +558,8 @@ export default function MonitoreoPro() {
                                                 <td className="px-3 py-2">
                                                     <input
                                                         className="w-12 rounded-lg border border-gray-300 bg-white text-black text-center font-semibold"
-                                                        value={getTipo(u)}
+                                                        // ✅ editable: valor controlado desde estado real
+                                                        value={u.tipoManual}
                                                         title={getTipoTooltip(u)}
                                                         onChange={(e) =>
                                                             updateRowField(

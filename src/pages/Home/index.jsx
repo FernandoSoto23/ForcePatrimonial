@@ -10,9 +10,12 @@ import {
   YAxis,
   Tooltip,
 } from "recharts";
+import { ChevronDown } from "lucide-react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../../utils/api";
-
+import Shortcut from "./components/ShortCut";
+import MetricCard from "./components/MetricCard";
+import { useLiveAlerts } from "../../hooks/useLiveAlerts";
 export default function Home() {
   const [units, setUnits] = useState({
     total: 0,
@@ -46,7 +49,7 @@ export default function Home() {
       status: true,
     },
   ];
-
+  const alerts = useLiveAlerts(10);
   const incidencias = [
     { tipo: "DESVÍO", count: 1240 },
     { tipo: "PÁNICO", count: 820 },
@@ -96,70 +99,127 @@ export default function Home() {
         </div>
 
         {/* CONTENT */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
-          {/* ALERTAS */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border">
-            <div className="flex justify-between items-center mb-4">
-              <div>
+        <div className="bg-white rounded-xl shadow-sm border mb-10">
+          {/* GRID INTERNO OBLIGATORIO */}
+          <div className="grid grid-cols-2">
+
+            {/* PANEL ALERTAS (ESTILO LEGACY) */}
+            <div className="bg-white rounded-xl shadow-sm border flex flex-col h-[420px]">
+
+              {/* ALERTAS RECIENTES – LEGACY STYLE */}
+              <div className="bg-white rounded-xl shadow-sm border flex flex-col h-[420px]">
+
+                {/* HEADER */}
+                <div className="flex justify-between items-center px-6 py-4 border-b">
+                  <div>
+                    <h2 className="font-semibold text-gray-800 text-sm">
+                      Alertas recientes
+                    </h2>
+                    <p className="text-xs text-gray-500">Feed activo</p>
+                  </div>
+
+                  <span className="text-[10px] bg-red-100 text-red-700 px-2 py-1 rounded-full font-semibold">
+                    LIVE
+                  </span>
+                </div>
+
+                {/* LISTADO */}
+                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+                  {alerts.map((a, i) => (
+                    <div
+                      key={i}
+                      className="
+          relative
+          bg-blue-50
+          border border-blue-100
+          rounded-lg
+          p-4
+          pl-6
+        "
+                    >
+                      {/* BARRA IZQUIERDA */}
+                      <span className="absolute left-0 top-0 h-full w-1 bg-blue-600 rounded-l-lg" />
+
+                      {/* HEADER */}
+                      <div className="flex justify-between items-center mb-1">
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <span className="w-2 h-2 bg-blue-600 rounded-full" />
+                          {a.hora}
+                        </div>
+
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                          {a.tipo}
+                        </span>
+                      </div>
+
+                      {/* CONTENIDO */}
+                      <div className="text-sm text-gray-800 leading-snug">
+                        <strong className="text-blue-700">
+                          Unidad {a.unidad}
+                        </strong>{" "}
+                        —{" "}
+                        <span className="text-gray-700 line-clamp-2">
+                          {a.mensaje}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {alerts.length === 0 && (
+                    <div className="text-center text-xs text-gray-500 py-10">
+                      Sin alertas activas
+                    </div>
+                  )}
+                </div>
+
+                {/* FOOTER */}
+                <Link
+                  to="/casos"
+                  className="text-center text-sm font-semibold text-blue-700 py-3 border-t hover:bg-gray-50"
+                >
+                  Ver todas →
+                </Link>
+              </div>
+
+
+            </div>
+
+
+            {/* ================= INCIDENCIAS ================= */}
+            <div className="flex flex-col">
+              {/* HEADER */}
+              <div className="px-6 py-4 border-b bg-gray-50">
                 <h2 className="font-semibold text-gray-800">
-                  Alertas recientes
+                  Incidencias por tipo
                 </h2>
                 <p className="text-xs text-gray-500">
-                  Eventos activos en tiempo real
+                  Últimos 10 minutos
                 </p>
               </div>
-              <span className="text-xs bg-red-50 text-red-700 px-2 py-1 rounded-full font-semibold">
-                LIVE
-              </span>
-            </div>
 
-            <div className="space-y-3 max-h-72 overflow-auto">
-              {[1, 2, 3].map((_, i) => (
-                <div
-                  key={i}
-                  className="bg-blue-50 border border-blue-100 rounded-lg p-3"
-                >
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-gray-500">03:05 a.m.</span>
-                    <span className="bg-blue-100 text-blue-700 px-2 rounded-full font-semibold">
-                      DESVÍO
-                    </span>
-                  </div>
-                  <p className="text-sm">
-                    <strong>Unidad ITM M002849</strong> — Desvío de ruta
-                    detectado.
-                  </p>
+              {/* CHART */}
+              <div className="flex-1 p-6">
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={incidencias}>
+                      <XAxis dataKey="tipo" fontSize={11} />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar
+                        dataKey="count"
+                        fill="#2563eb"
+                        radius={[6, 6, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
-              ))}
+              </div>
             </div>
 
-            <Link
-              to="/casos"
-              className="block mt-4 text-sm text-blue-700 font-semibold text-center hover:underline"
-            >
-              Ver todas las alertas →
-            </Link>
-          </div>
-
-          {/* INCIDENCIAS */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border">
-            <h2 className="font-semibold text-gray-800 mb-2">
-              Incidencias por tipo
-            </h2>
-            <p className="text-xs text-gray-500 mb-3">Últimos 10 minutos</p>
-
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={incidencias}>
-                  <XAxis dataKey="tipo" fontSize={11} />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#2563eb" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
           </div>
         </div>
+
+
 
         {/* SHORTCUTS */}
         <h2 className="text-lg font-semibold text-gray-800 mb-4">
@@ -179,60 +239,6 @@ export default function Home() {
   );
 }
 
-function MetricCard({ title, subtitle, value, color, status }) {
-  const chartData = status ? null : [{ value: 75 }, { value: 25 }];
 
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col transition hover:shadow-lg hover:-translate-y-0.5">
-      <div className="flex justify-between items-start">
-        <div className="space-y-0.5">
-          <p className="text-sm font-semibold text-gray-700">{title}</p>
-          <p className="text-xs text-gray-400">{subtitle}</p>
-        </div>
 
-        {!status && (
-          <div className="w-16 h-16">
-            <ResponsiveContainer>
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  innerRadius={20}
-                  outerRadius={28}
-                  dataKey="value"
-                  startAngle={90}
-                  endAngle={-270}
-                >
-                  <Cell fill={color} />
-                  <Cell fill="#e5e7eb" />
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </div>
 
-      <div className="mt-6">
-        <p className="text-3xl font-extrabold tracking-tight" style={{ color }}>
-          {value}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function Shortcut({ icon, label, to }) {
-  return (
-    <Link
-      to={to}
-      className="group bg-white border border-gray-100 rounded-2xl p-5 flex flex-col items-center gap-2 transition hover:shadow-lg hover:-translate-y-0.5"
-    >
-      <div className="text-3xl text-gray-500 group-hover:text-blue-600 transition">
-        {icon}
-      </div>
-
-      <p className="text-sm font-semibold text-gray-700 group-hover:text-blue-600 transition">
-        {label}
-      </p>
-    </Link>
-  );
-}

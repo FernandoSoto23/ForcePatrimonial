@@ -544,7 +544,7 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
 
   return (
     <div
-      className={`p-6 bg-gray-100 min-h-screen grid grid-cols-2 gap-6 text-black mt-10
+      className={`p-6 bg-gray-100 min-h-screen grid grid-cols-2 gap-6 text-black 
     ${casoCriticoSeleccionado || casoSeleccionado
   ? "pointer-events-none"
   : ""
@@ -554,7 +554,7 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
 
       {casoCriticoSeleccionado && (
 
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 mt-10 pointer-events-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 mt-5 pointer-events-auto">
 
           <div className="bg-white rounded-xl w-[1000px] max-w-full p-6 shadow-2xl mt-10 max-h-[80vh] overflow-y-auto">
             {/* HEADER */}
