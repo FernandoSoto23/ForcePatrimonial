@@ -15,29 +15,29 @@ export default function AppLayout() {
   const toastIdRef = useRef(null);
 
   /* 🔔 TOAST GLOBAL DE CARGA */
-/*   useEffect(() => {
-    // Si aún no existe el toast → créalo
-    if (!geocercasReady || !linealesReady) {
-      if (!toastIdRef.current) {
-        toastIdRef.current = toast.loading(
-          "Cargando geocercas y rutas…",
-          { closeOnClick: false }
-        );
+  /*   useEffect(() => {
+      // Si aún no existe el toast → créalo
+      if (!geocercasReady || !linealesReady) {
+        if (!toastIdRef.current) {
+          toastIdRef.current = toast.loading(
+            "Cargando geocercas y rutas…",
+            { closeOnClick: false }
+          );
+        }
+        return;
       }
-      return;
-    }
-
-    // Si ya cargaron ambas → actualiza el toast
-    if (toastIdRef.current) {
-      toast.update(toastIdRef.current, {
-        render: "Geocercas y rutas cargadas ✅",
-        type: "success",
-        isLoading: false,
-        autoClose: 2000,
-      });
-      toastIdRef.current = null;
-    }
-  }, [geocercasReady, linealesReady]); */
+  
+      // Si ya cargaron ambas → actualiza el toast
+      if (toastIdRef.current) {
+        toast.update(toastIdRef.current, {
+          render: "Geocercas y rutas cargadas ✅",
+          type: "success",
+          isLoading: false,
+          autoClose: 2000,
+        });
+        toastIdRef.current = null;
+      }
+    }, [geocercasReady, linealesReady]); */
 
   /* 🔐 AUTH (si lo activas después)
   if (!isAuthenticated) {
@@ -48,7 +48,7 @@ export default function AppLayout() {
   return (
     <div className="min-h-screen bg-gray-100">
       <Navbar user={user} />
-      <main className="pt-16 px-6">
+      <main className="pt-16 w-full">
         <Outlet />
       </main>
     </div>

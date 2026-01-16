@@ -92,7 +92,14 @@ export default function Home() {
 
         {/* METRICS ROW */}
 
-        <div className="grid grid-cols-4 gap-6 mb-10">
+        <div className="
+  grid
+  grid-cols-4
+  gap-6
+  mb-10
+  max-[1023px]:grid-cols-2
+  max-[639px]:grid-cols-1
+">
           {metrics.map((m, i) => (
             <MetricCard key={i} {...m} />
           ))}
@@ -101,7 +108,7 @@ export default function Home() {
         {/* CONTENT */}
         <div className="bg-white rounded-xl shadow-sm border mb-10">
           {/* GRID INTERNO OBLIGATORIO */}
-          <div className="grid grid-cols-2">
+          <div className="grid grid-cols-2  max-[1023px]:grid-cols-1">
 
             {/* PANEL ALERTAS (ESTILO LEGACY) */}
             <div className="bg-white rounded-xl shadow-sm border flex flex-col h-[420px]">
