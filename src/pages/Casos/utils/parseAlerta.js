@@ -27,9 +27,12 @@ export function parseUnidad(texto) {
 
 export function parseTipo(texto) {
   const t = normalize(texto);
-
+  console.log(texto)
   if (t.includes("PANICO")) return "PANICO";
-  if (t.includes("JAMMER")) return "DETECCION DE JAMMER";
+  if (t.includes("JAMMER")){
+      console.log("Hay una alerta de jammer")
+     return "DETECCION DE JAMMER"
+  }
   if (t.includes("SIN SENAL")) return "SIN SEÑAL";
   if (t.includes("UNIDAD DETENIDA")) return "UNIDAD DETENIDA";
   if (t.includes("ZONA")) return "ZONA DE RIESGO";

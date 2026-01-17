@@ -140,7 +140,8 @@ function casosReducer(state, action) {
 
 export default function Casos() {
   /* VARIABLES DE ESTADO */
-
+  const [filtroCriticosTipo, setFiltroCriticosTipo] = useState("TODOS");
+  const [filtroTipoAlerta, setFiltroTipoAlerta] = useState("TODOS");
   const [casos, dispatchCasos] = useReducer(casosReducer, {});
   const sirena = useRef(null);
   const [showMsg, setShowMsg] = useState(false);
@@ -190,8 +191,33 @@ Motivo: ${motivoCierre}
 ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
 `.trim();
   }, [motivoCierre, observacionesCierre]);
+  const conteoPorTipo = useMemo(() => {
+    if (!casoCriticoSeleccionado) return {};
 
+    return casoCriticoSeleccionado.eventos.reduce((acc, e) => {
+      const k = e.tipoNorm || normalize(e.tipo);
+      acc[k] = (acc[k] || 0) + 1;
+      return acc;
+    }, {});
+  }, [casoCriticoSeleccionado]);
+
+  const tiposDisponibles = Object.keys(conteoPorTipo);
+  const puedeVerFiltroCriticos = useMemo(() => {
+    return usuario?.email === "dfierro@paquetexpress.com.mx";
+  }, [usuario]);
   /* FUNCIONES */
+  const eventosFiltrados = useMemo(() => {
+    if (!casoCriticoSeleccionado) return [];
+
+    if (filtroTipoAlerta === "TODOS") {
+      return casoCriticoSeleccionado.eventos;
+    }
+
+    return casoCriticoSeleccionado.eventos.filter(
+      (e) => (e.tipoNorm || normalize(e.tipo)) === filtroTipoAlerta
+    );
+  }, [casoCriticoSeleccionado, filtroTipoAlerta]);
+
   function procesarEnLotes(
     items,
     procesar,
@@ -389,6 +415,34 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
     }
   }, []);
 
+  const conteoCriticosPorTipo = useMemo(() => {
+    const acc = {};
+
+    criticos.forEach((c) => {
+      (c.eventos || []).forEach((e) => {
+        const k = e.tipoNorm || normalize(e.tipo);
+        acc[k] = (acc[k] || 0) + 1;
+      });
+    });
+
+    return acc;
+  }, [criticos]);
+
+  const tiposCriticosDisponibles = Object.keys(conteoCriticosPorTipo);
+  const criticosFiltrados = useMemo(() => {
+    if (filtroCriticosTipo === "TODOS") return criticos;
+
+    return criticos.filter((c) =>
+      (c.eventos || []).some(
+        (e) => (e.tipoNorm || normalize(e.tipo)) === filtroCriticosTipo
+      )
+    );
+  }, [criticos, filtroCriticosTipo]);
+
+
+  useEffect(() => {
+    setFiltroCriticosTipo("TODOS");
+  }, [criticos.length]);
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
     if (!token) return;
@@ -403,7 +457,11 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
       console.error("Token inválido", error);
     }
   }, []);
-
+  useEffect(() => {
+    if (casoCriticoSeleccionado) {
+      setFiltroTipoAlerta("TODOS");
+    }
+  }, [casoCriticoSeleccionado]);
   useEffect(() => {
     if (loadingUnits) return;
     if (!Array.isArray(units) || units.length === 0) return;
@@ -546,9 +604,9 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
     <div
       className={`p-6 bg-gray-100 min-h-screen grid grid-cols-2 gap-6 text-black 
     ${casoCriticoSeleccionado || casoSeleccionado
-  ? "pointer-events-none"
-  : ""
-}
+          ? "pointer-events-none"
+          : ""
+        }
   `}
     >
 
@@ -587,10 +645,43 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
                 {casoCriticoSeleccionado.eventos.length}
               </div>
             </div>
+            {/* FILTRO + CONTEO */}
+            <div className="mb-4 space-y-2">
+              <div className="text-xs font-semibold text-gray-700">
+                Filtrar por tipo de alerta
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setFiltroTipoAlerta("TODOS")}
+                  className={`px-3 py-1 rounded-full text-[11px] font-semibold border
+        ${filtroTipoAlerta === "TODOS"
+                      ? "bg-black text-white border-black"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                    }`}
+                >
+                  TODOS ({casoCriticoSeleccionado.eventos.length})
+                </button>
+
+                {tiposDisponibles.map((tipo) => (
+                  <button
+                    key={tipo}
+                    onClick={() => setFiltroTipoAlerta(tipo)}
+                    className={`px-3 py-1 rounded-full text-[11px] font-semibold border
+          ${filtroTipoAlerta === tipo
+                        ? "bg-red-600 text-white border-red-600"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                      }`}
+                  >
+                    {tipo} ({conteoPorTipo[tipo]})
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* HISTORIAL DETALLADO */}
             <div className="border rounded-md p-3 max-h-72 overflow-auto text-xs space-y-3">
-              {casoCriticoSeleccionado.eventos.map((e, i) => (
+              {eventosFiltrados.map((e, i) => (
                 <div key={i} className="border-b last:border-b-0 pb-3">
                   {/* ENCABEZADO */}
                   <div className="flex justify-between items-center mb-1">
@@ -1144,6 +1235,41 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
             )}
           </div>
         </div>
+        {puedeVerFiltroCriticos && (
+          <div className="mb-3 p-2 bg-red-100 border border-red-300 rounded-md">
+            <div className="text-xs font-semibold text-red-700 mb-2">
+              Filtrar casos críticos por tipo
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setFiltroCriticosTipo("TODOS")}
+                className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border
+          ${filtroCriticosTipo === "TODOS"
+                    ? "bg-red-700 text-white border-red-700"
+                    : "bg-white text-red-700 border-red-300 hover:bg-red-50"
+                  }`}
+              >
+                TODOS ({criticos.length})
+              </button>
+
+              {tiposCriticosDisponibles.map((tipo) => (
+                <button
+                  key={tipo}
+                  onClick={() => setFiltroCriticosTipo(tipo)}
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border
+            ${filtroCriticosTipo === tipo
+                      ? "bg-red-600 text-white border-red-600"
+                      : "bg-white text-red-700 border-red-300 hover:bg-red-50"
+                    }`}
+                >
+                  {tipo} ({conteoCriticosPorTipo[tipo]})
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto pr-2">
           {activos.map((c) => (
             <CasoActivoCard
