@@ -202,9 +202,15 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
   }, [casoCriticoSeleccionado]);
 
   const tiposDisponibles = Object.keys(conteoPorTipo);
-  const puedeVerFiltroCriticos = useMemo(() => {
-    return usuario?.email === "dfierro@paquetexpress.com.mx";
-  }, [usuario]);
+const USUARIOS_FILTRO_CRITICOS = [
+  "dfierro@paquetexpress.com.mx",
+  "Fernando Salazar LMM",
+  "cmsaideearcelog",
+];
+
+const puedeVerFiltroCriticos = useMemo(() => {
+  return USUARIOS_FILTRO_CRITICOS.includes(usuario?.email);
+}, [usuario]);
   /* FUNCIONES */
   const eventosFiltrados = useMemo(() => {
     if (!casoCriticoSeleccionado) return [];
