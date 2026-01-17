@@ -202,15 +202,15 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
   }, [casoCriticoSeleccionado]);
 
   const tiposDisponibles = Object.keys(conteoPorTipo);
-const USUARIOS_FILTRO_CRITICOS = [
-  "dfierro@paquetexpress.com.mx",
-  "Fernando Salazar LMM",
-  "cmsaideearcelog",
-];
+  const USUARIOS_FILTRO_CRITICOS = [
+    "dfierro@paquetexpress.com.mx",
+    "Fernando Salazar LMM",
+    
+  ];
 
-const puedeVerFiltroCriticos = useMemo(() => {
-  return USUARIOS_FILTRO_CRITICOS.includes(usuario?.email);
-}, [usuario]);
+  const puedeVerFiltroCriticos = useMemo(() => {
+    return USUARIOS_FILTRO_CRITICOS.includes(usuario?.name);
+  }, [usuario]);
   /* FUNCIONES */
   const eventosFiltrados = useMemo(() => {
     if (!casoCriticoSeleccionado) return [];
@@ -1241,40 +1241,7 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
             )}
           </div>
         </div>
-        {puedeVerFiltroCriticos && (
-          <div className="mb-3 p-2 bg-red-100 border border-red-300 rounded-md">
-            <div className="text-xs font-semibold text-red-700 mb-2">
-              Filtrar casos críticos por tipo
-            </div>
 
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setFiltroCriticosTipo("TODOS")}
-                className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border
-          ${filtroCriticosTipo === "TODOS"
-                    ? "bg-red-700 text-white border-red-700"
-                    : "bg-white text-red-700 border-red-300 hover:bg-red-50"
-                  }`}
-              >
-                TODOS ({criticos.length})
-              </button>
-
-              {tiposCriticosDisponibles.map((tipo) => (
-                <button
-                  key={tipo}
-                  onClick={() => setFiltroCriticosTipo(tipo)}
-                  className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border
-            ${filtroCriticosTipo === tipo
-                      ? "bg-red-600 text-white border-red-600"
-                      : "bg-white text-red-700 border-red-300 hover:bg-red-50"
-                    }`}
-                >
-                  {tipo} ({conteoCriticosPorTipo[tipo]})
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div className="flex-1 overflow-y-auto pr-2">
           {activos.map((c) => (
@@ -1325,7 +1292,6 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
             <h2 className="text-xl font-semibold text-red-700">
               🔥 Alertas Críticas
             </h2>
-
             <span
               className={`text-xs font-bold px-2 py-0.5 rounded-full text-white
       ${criticos.length > 0 ? "bg-red-600 animate-pulse" : "bg-red-400"}
@@ -1335,15 +1301,33 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
             </span>
           </div>
 
-          <button
-            onClick={() => dispatchCasos({ type: "CLEAR_CRITICOS" })}
-            className="text-xs bg-red-600 text-white px-3 py-1 rounded flex gap-1 items-center"
-          >
-            <Trash2 size={14} /> Borrar
-          </button>
+            {/* FILTRO CRÍTICOS (SELECT) */}
+            {puedeVerFiltroCriticos && (
+              <div className="mb-3 mt-2 p-3 bg-red-100 border border-red-300 rounded-md">
+                <label className="block text-xs font-semibold text-red-700 mb-1">
+                  Filtrar casos críticos por tipo
+                </label>
+
+                <select
+                  value={filtroCriticosTipo}
+                  onChange={(e) => setFiltroCriticosTipo(e.target.value)}
+                  className="w-full bg-white border border-red-300 rounded-md p-2 text-xs text-red-700 font-semibold focus:outline-none focus:ring-2 focus:ring-red-400"
+                >
+                  <option value="TODOS">
+                    TODOS ({criticos.length})
+                  </option>
+
+                  {tiposCriticosDisponibles.map((tipo) => (
+                    <option key={tipo} value={tipo}>
+                      {tipo} ({conteoCriticosPorTipo[tipo]})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
         </div>
         <div className="flex-1 overflow-y-auto pr-2">
-          {criticos.map((c) => (
+          {criticosFiltrados.map((c) => (
             <CasoCriticoCard
               key={c.id}
               caso={c}
