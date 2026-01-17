@@ -208,7 +208,9 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
     "Fernando Salazar LMM",
 
   ];
-
+  const ES_USUARIO_PANICO_GLOBAL = useMemo(() => {
+    return USUARIOS_FILTRO_CRITICOS.includes(usuario?.name);
+  }, [usuario]);
   const puedeVerFiltroCriticos = useMemo(() => {
     return USUARIOS_FILTRO_CRITICOS.includes(usuario?.name);
   }, [usuario]);
@@ -306,9 +308,21 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
       if (parsed) tsInc = parsed;
     }
 
-    const bloqueHora = obtenerBloqueHora(tsInc);
-    const casoId = `${unidad}_${bloqueHora}`;
-    const tipoNorm = normalize(tipo);
+    const tipoNorm = normalize(tipo); // ✅ PRIMERO
+
+    let casoId;
+
+    // 🔥 REGLA ESPECIAL SOLO PARA DIANA
+    if (
+      ES_USUARIO_PANICO_GLOBAL &&
+      tipoNorm === "PANICO"
+    ) {
+      casoId = `${unidad}_PANICO_GLOBAL`;
+    } else {
+      const bloqueHora = obtenerBloqueHora(tsInc);
+      casoId = `${unidad}_${bloqueHora}`;
+    }
+
     const alertaId = data.id;
 
     dispatchCasos({
@@ -451,16 +465,40 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
     }
     return filtroCriticosTipo;
   }, [filtroCriticosTipo, tiposCriticosDisponibles]);
+  const contarPanicos = (caso) => {
+    return (caso.eventos || []).filter(
+      (e) => (e.tipoNorm || normalize(e.tipo)) === "PANICO"
+    ).length;
+  };
 
   const criticosFiltrados = useMemo(() => {
-    if (filtroCriticosTipo === "TODOS") return criticos;
+    let lista = criticos;
 
-    return criticos.filter((c) =>
-      (c.eventos || []).some(
-        (e) => (e.tipoNorm || normalize(e.tipo)) === filtroCriticosTipo
-      )
-    );
-  }, [criticos, filtroCriticosTipo]);
+    // 🔥 Regla especial SOLO para usuarios en whitelist
+    if (USUARIOS_FILTRO_CRITICOS.includes(usuario?.name)) {
+      lista = lista.filter((c) => {
+        const panicos = contarPanicos(c);
+
+        // 🧠 Si NO es caso de pánico → se muestra normal
+        if (panicos === 0) return true;
+
+        // 🚨 Si ES pánico → solo si tiene 10 o más
+        return panicos >= 10;
+      });
+    }
+
+    // 🎯 filtro normal por tipo (sin cambios)
+    if (filtroCriticosTipo !== "TODOS") {
+      lista = lista.filter((c) =>
+        (c.eventos || []).some(
+          (e) => (e.tipoNorm || normalize(e.tipo)) === filtroCriticosTipo
+        )
+      );
+    }
+
+    return lista;
+  }, [criticos, filtroCriticosTipo, usuario]);
+
 
 
   useEffect(() => {
