@@ -104,8 +104,7 @@ function casosReducer(state, action) {
       // 🔴 CRÍTICO SOLO SI:
       // - pánico
       // - o 2+ alertas en el caso
-      actual.critico =
-        actual.esPanico || totalAlertas >= 2;
+      actual.critico = totalAlertas >= 2;
 
       copia[casoId] = actual;
       return copia;
@@ -169,6 +168,8 @@ export default function Casos() {
   });
 
   /* USE REF */
+  const tiposCriticosRef = useRef(new Set());
+
   const unidadesUsuarioRef = useRef(new Set());
   const unidadValidaCacheRef = useRef(new Map());
   const unidadesMapRef = useRef(new Map());
@@ -203,9 +204,9 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
 
   const tiposDisponibles = Object.keys(conteoPorTipo);
   const USUARIOS_FILTRO_CRITICOS = [
-    "dfierro@paquetexpress.com.mx",
+    "dfierro@paquetexpress.com,mx",
     "Fernando Salazar LMM",
-    
+
   ];
 
   const puedeVerFiltroCriticos = useMemo(() => {
@@ -434,7 +435,23 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
     return acc;
   }, [criticos]);
 
-  const tiposCriticosDisponibles = Object.keys(conteoCriticosPorTipo);
+  const tiposCriticosDisponibles = useMemo(() => {
+    Object.keys(conteoCriticosPorTipo).forEach((t) =>
+      tiposCriticosRef.current.add(t)
+    );
+
+    return Array.from(tiposCriticosRef.current);
+  }, [conteoCriticosPorTipo]);
+  const filtroCriticosSeguro = useMemo(() => {
+    if (
+      filtroCriticosTipo !== "TODOS" &&
+      !tiposCriticosDisponibles.includes(filtroCriticosTipo)
+    ) {
+      return "TODOS";
+    }
+    return filtroCriticosTipo;
+  }, [filtroCriticosTipo, tiposCriticosDisponibles]);
+
   const criticosFiltrados = useMemo(() => {
     if (filtroCriticosTipo === "TODOS") return criticos;
 
@@ -447,7 +464,10 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
 
 
   useEffect(() => {
-    setFiltroCriticosTipo("TODOS");
+    if (criticos.length === 0) {
+      tiposCriticosRef.current.clear();
+      setFiltroCriticosTipo("TODOS");
+    }
   }, [criticos.length]);
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
@@ -1301,30 +1321,30 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
             </span>
           </div>
 
-            {/* FILTRO CRÍTICOS (SELECT) */}
-            {puedeVerFiltroCriticos && (
-              <div className="mb-3 mt-2 p-3 bg-red-100 border border-red-300 rounded-md">
-                <label className="block text-xs font-semibold text-red-700 mb-1">
-                  Filtrar casos críticos por tipo
-                </label>
+          {/* FILTRO CRÍTICOS (SELECT) */}
+          {puedeVerFiltroCriticos && (
+            <div className="mb-3 mt-2 p-3 bg-red-100 border border-red-300 rounded-md">
+              <label className="block text-xs font-semibold text-red-700 mb-1">
+                Filtrar casos críticos por tipo
+              </label>
 
-                <select
-                  value={filtroCriticosTipo}
-                  onChange={(e) => setFiltroCriticosTipo(e.target.value)}
-                  className="w-full bg-white border border-red-300 rounded-md p-2 text-xs text-red-700 font-semibold focus:outline-none focus:ring-2 focus:ring-red-400"
-                >
-                  <option value="TODOS">
-                    TODOS ({criticos.length})
+              <select
+                value={filtroCriticosSeguro}
+                onChange={(e) => setFiltroCriticosTipo(e.target.value)}
+                className="w-full bg-white border border-red-300 rounded-md p-2 text-xs text-red-700 font-semibold focus:outline-none focus:ring-2 focus:ring-red-400"
+              >
+                <option value="TODOS">
+                  TODOS ({criticos.length})
+                </option>
+
+                {tiposCriticosDisponibles.map((tipo) => (
+                  <option key={tipo} value={tipo}>
+                    {tipo} ({conteoCriticosPorTipo[tipo]})
                   </option>
-
-                  {tiposCriticosDisponibles.map((tipo) => (
-                    <option key={tipo} value={tipo}>
-                      {tipo} ({conteoCriticosPorTipo[tipo]})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto pr-2">
           {criticosFiltrados.map((c) => (
