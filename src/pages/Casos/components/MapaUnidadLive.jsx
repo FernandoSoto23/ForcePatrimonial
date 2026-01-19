@@ -11,13 +11,29 @@ mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 ============================== */
 function crearMarkerCamion(course = 0) {
   const el = document.createElement("div");
-  el.innerText = "🚚";
-  el.style.fontSize = "32px";
-  el.style.transform = `rotate(${course}deg)`;
-  el.style.transformOrigin = "center";
+
+  el.innerHTML = `
+    <svg width="42" height="42" viewBox="0 0 24 24"
+      style="
+        transform: rotate(${course}deg);
+        filter: drop-shadow(0 0 6px rgba(0,0,0,0.6));
+      ">
+      <path
+        d="M12 2 L20 21 L12 17 L4 21 Z"
+        fill="#dc2626"
+        stroke="#ffffff"
+        stroke-width="2"
+      />
+    </svg>
+  `;
+
   el.style.cursor = "pointer";
+  el.style.transformOrigin = "center";
+
   return el;
 }
+
+
 
 /* ==============================
    MENU FLOTANTE
@@ -431,3 +447,5 @@ export default function MapaUnidadLive({ unitId, alerta }) {
     </div>
   );
 }
+
+

@@ -205,7 +205,6 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
   const tiposDisponibles = Object.keys(conteoPorTipo);
   const USUARIOS_FILTRO_CRITICOS = [
     "dfierro@paquetexpress.com,mx",
-    "Fernando Salazar LMM",
 
   ];
   const ES_USUARIO_PANICO_GLOBAL = useMemo(() => {
