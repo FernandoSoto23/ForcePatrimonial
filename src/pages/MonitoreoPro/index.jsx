@@ -159,21 +159,6 @@ async function fetchData(unitNames) {
 
     return { units, allGeofences, cross: mergedCross };
 }
-const handleCopyTipo = async () => {
-    if (!searches.length) return;
-
-    const txt = searches[0].rows
-        .map((r) => getTipo(r))
-        .join("\n");
-
-    try {
-        await navigator.clipboard.writeText(txt);
-        alert("Columna 'Tipo' copiada. Pega directo en Excel ✅");
-    } catch (e) {
-        console.error("No se pudo copiar:", e);
-        alert("No se pudo copiar automáticamente");
-    }
-};
 
 /* ======================= UI ======================= */
 
@@ -184,51 +169,6 @@ function Badge({ label }) {
         </span>
     );
 }
-const updateRowField = (searchId, rowId, field, val) => {
-    setSearches((prev) =>
-        prev.map((s) =>
-            s.id !== searchId
-                ? s
-                : {
-                    ...s,
-                    rows: s.rows.map((r) =>
-                        r.id === rowId
-                            ? {
-                                ...r,
-                                [field]: val,
-                                horaTipo:
-                                    field === "tipoManual"
-                                        ? formatHoraActual()
-                                        : r.horaTipo,
-                            }
-                            : r
-                    ),
-                }
-        )
-    );
-};
-const handleDownloadExcel = () => {
-    if (!searches.length) return;
-
-    const rows = searches[0].rows.map((r) => ({
-        Unidad: r.name,
-        Ruta: r.ruta,
-        Segmento: r.segmento,
-        Tipo: getTipo(r),
-        Hora: r.horaTipo ?? "",
-        "Última posición": fmtDT(r.t),
-        Latitud: r.lat ?? "",
-        Longitud: r.lon ?? "",
-        Geocercas: r.zones.map((z) => z.name).join(", "),
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(wb, ws, "Monitoreo");
-
-    XLSX.writeFile(wb, `Monitoreo_${Date.now()}.xlsx`);
-};
 
 /* ======================= COMPONENT ======================= */
 
@@ -237,6 +177,229 @@ export default function MonitoreoPro() {
     const [searches, setSearches] = useState([]);
     const [activeSearchId, setActiveSearchId] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [tipoFilter, setTipoFilter] = useState("");
+
+    // ✅ FIX: estas funciones deben vivir dentro del componente para usar searches/setSearches
+    const updateRowField = (searchId, rowId, field, val) => {
+        setSearches((prev) =>
+            prev.map((s) =>
+                s.id !== searchId
+                    ? s
+                    : {
+                        ...s,
+                        rows: s.rows.map((r) =>
+                            r.id === rowId
+                                ? {
+                                    ...r,
+                                    [field]: val,
+                                    horaTipo:
+                                        field === "tipoManual"
+                                            ? formatHoraActual()
+                                            : r.horaTipo,
+                                }
+                                : r
+                        ),
+                    }
+            )
+        );
+    };
+
+    const handleCopyTipo = async () => {
+        if (!searches.length) return;
+
+        const txt = searches[0].rows
+            .map((r) => getTipo(r))
+            .join("\n");
+
+        try {
+            await navigator.clipboard.writeText(txt);
+            alert("Columna 'Tipo' copiada. Pega directo en Excel ✅");
+        } catch (e) {
+            console.error("No se pudo copiar:", e);
+            alert("No se pudo copiar automáticamente");
+        }
+    };
+
+    const handleDownloadExcel = () => {
+        if (!searches.length) return;
+
+        const baseSearch = searches[0];
+
+        // --------- Config: columnas por busqueda ----------
+        // Primera busqueda: Tipo, Hora, Ultima, Lat, Lon, Geocercas (6)
+        // Otras: Tipo, Hora (2)
+        const colsPerSearch = (idx) => (idx === 0 ? 6 : 2);
+
+        // --------- 1) Construir encabezados (2 filas) ----------
+        const headerRow1 = ["Unidad", "Ruta", "Segmento"];
+        const headerRow2 = ["", "", ""];
+
+        // Para merges (celdas combinadas)
+        const merges = [];
+
+        let colCursor = 3; // empezamos despues de Unidad/Ruta/Segmento
+
+        searches.forEach((s, idx) => {
+            const span = colsPerSearch(idx);
+
+            // Fila 1: "Búsqueda X" (la combinamos sobre su bloque)
+            const title = `Búsqueda ${idx + 1}  ${s.createdAt || ""}`.trim();
+            headerRow1.push(title, ...Array(span - 1).fill(""));
+
+            merges.push({
+                s: { r: 0, c: colCursor },
+                e: { r: 0, c: colCursor + span - 1 },
+            });
+
+            // Fila 2: subheaders
+            headerRow2.push("Tipo", "Hora");
+
+            if (idx === 0) {
+                headerRow2.push("Última posición", "Lat / Lon", "", "Geocercas");
+                // Nota: "Lat / Lon" ocupa 2 columnas: Lat y Lon, pero mostramos un titulo parecido.
+                // Lo ajustamos en la fila 2 dejando una celda vacía al lado para que se vea como bloque.
+                // (merge para Lat/Lon)
+                merges.push({
+                    s: { r: 1, c: colCursor + 3 },
+                    e: { r: 1, c: colCursor + 4 },
+                });
+            }
+
+            colCursor += span;
+        });
+
+        // Ajuste fino: en idx=0 realmente queremos 6 subcolumnas exactas:
+        // Tipo | Hora | Última posición | Latitud | Longitud | Geocercas
+        // Vamos a reemplazar ese bloque para que quede perfecto:
+        // (headerRow2 ya trae: Tipo,Hora,Última,Lat/Lon,"",Geocercas)
+        // y el merge Lat/Lon cubre 2 cols. Pero en datos iremos con Latitud y Longitud.
+        // Si quieres que la fila 2 diga "Latitud" y "Longitud" como en tu Excel:
+        // cambia esas 2 celdas abajo (te lo dejo como opción).
+        //
+        // OPCION A (parecido a la app): "Lat / Lon" combinado
+        // OPCION B (parecido al Excel clásico): "Latitud" y "Longitud" separados
+        //
+        // Si prefieres OPCION B, comenta el merge Lat/Lon y pon:
+        // headerRow2.push("Latitud","Longitud") en vez de ("Lat / Lon","")
+        //
+        // Yo lo dejo en B (más claro y se parece a tu export actual):
+        // --- Rehacer headerRow2 para idx=0 como B ---
+        // Para no complicarte, aquí lo construimos bien:
+        const headerRow2Fixed = ["", "", ""];
+        colCursor = 3;
+        merges.length = 0;
+
+        searches.forEach((s, idx) => {
+            const span = colsPerSearch(idx);
+            const title = `Búsqueda ${idx + 1}  ${s.createdAt || ""}`.trim();
+
+            // merges fila 1
+            merges.push({
+                s: { r: 0, c: colCursor },
+                e: { r: 0, c: colCursor + span - 1 },
+            });
+
+            if (idx === 0) {
+                headerRow2Fixed.push(
+                    "Tipo",
+                    "Hora",
+                    "Última posición",
+                    "Latitud",
+                    "Longitud",
+                    "Geocercas"
+                );
+            } else {
+                headerRow2Fixed.push("Tipo", "Hora");
+            }
+
+            colCursor += span;
+        });
+
+        // reconstruir headerRow1 bien (porque arriba lo llenamos con vacíos)
+        const headerRow1Fixed = ["Unidad", "Ruta", "Segmento"];
+        colCursor = 3;
+        searches.forEach((s, idx) => {
+            const span = colsPerSearch(idx);
+            const title = `Búsqueda ${idx + 1}  ${s.createdAt || ""}`.trim();
+            headerRow1Fixed.push(title, ...Array(span - 1).fill(""));
+            colCursor += span;
+        });
+
+        // --------- 2) Construir datos (como en la tabla) ----------
+        const dataRows = baseSearch.rows.map((baseRow) => {
+            const row = [
+                baseRow.name,
+                baseRow.ruta || "",
+                baseRow.segmento || "",
+            ];
+
+            searches.forEach((s, idx) => {
+                const u = s.rows.find((r) => r.id === baseRow.id) || {};
+
+                // Tipo / Hora siempre
+                row.push((u.tipoManual ?? "").toString().toUpperCase());
+                row.push(u.horaTipo || "");
+
+                // Solo en la primera busqueda: Ultima / Lat / Lon / Geocercas
+                if (idx === 0) {
+                    row.push(fmtDT(u.t));
+                    row.push(u.lat ?? "");
+                    row.push(u.lon ?? "");
+                    row.push(u.zones ? u.zones.map((z) => z.name).join(", ") : "");
+                }
+            });
+
+            return row;
+        });
+
+        // --------- 3) AOA -> sheet ----------
+        const aoa = [headerRow1Fixed, headerRow2Fixed, ...dataRows];
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+        // merges para la fila 1 (titulos de busqueda)
+        ws["!merges"] = merges;
+
+        // --------- 4) Anchos (similar a tu app) ----------
+        const cols = [
+            { wch: 14 }, // Unidad
+            { wch: 20 }, // Ruta
+            { wch: 24 }, // Segmento
+        ];
+
+        searches.forEach((_, idx) => {
+            if (idx === 0) {
+                cols.push(
+                    { wch: 8 },  // Tipo
+                    { wch: 12 }, // Hora
+                    { wch: 20 }, // Ultima pos
+                    { wch: 12 }, // Lat
+                    { wch: 12 }, // Lon
+                    { wch: 40 }  // Geocercas
+                );
+            } else {
+                cols.push(
+                    { wch: 8 },  // Tipo
+                    { wch: 12 }  // Hora
+                );
+            }
+        });
+
+        ws["!cols"] = cols;
+
+        // --------- 5) Congelar (como tu tabla: encabezados + 3 columnas fijas) ----------
+        ws["!freeze"] = {
+            xSplit: 3, // Unidad/Ruta/Segmento
+            ySplit: 2, // 2 filas de header
+        };
+
+        // --------- 6) Crear archivo ----------
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Monitoreo");
+        XLSX.writeFile(wb, `Monitoreo_${Date.now()}.xlsx`);
+    };
+
+
+
 
     const updateRow = (rowId, field, val) => {
         setSearches((prev) =>
@@ -285,7 +448,7 @@ export default function MonitoreoPro() {
         const rows = unitNames.map((name, idx) => {
             const found = unitByName.get(name.toLowerCase());
             if (!found)
-                return { id: 100000 + idx, name, zones: [], ruta: "", segmento: "" };
+                return { id: 100000 + idx, name, zones: [], ruta: "", segmento: "", tipoManual: "", horaTipo: "" };
 
             const isStale = !found.t || nowSec - found.t > MAX_AGE_SEC;
 
@@ -305,12 +468,12 @@ export default function MonitoreoPro() {
                 segmento: "",
             };
 
-            const tipo = isStale ? "" : getTipo(base);
+            const autoTipo = isStale ? "" : getAutoFlag(base);
 
             return {
                 ...base,
-                tipoManual: tipo || undefined,
-                horaTipo: tipo ? formatHoraActual() : undefined,
+                tipoManual: autoTipo || "",   // solo sugerencia inicial
+                horaTipo: autoTipo ? formatHoraActual() : "",
             };
         });
 
@@ -327,6 +490,33 @@ export default function MonitoreoPro() {
     };
 
     /* ======================= RENDER ======================= */
+    const baseSearch =
+        searches.find((s) => s.id === activeSearchId) ?? searches[0];
+
+    const visibleRows = baseSearch
+        ? baseSearch.rows.filter((r) => {
+            if (!tipoFilter) return true;
+            // ✅ FIX: filtra por getTipo (respeta tipoManual), no por getAutoFlag
+            return getTipo(r) === tipoFilter;
+        })
+        : [];
+    const handleSelectGroup = (group) => {
+        if (searches.length > 0) {
+            const ok = window.confirm(
+                "Al cambiar de grupo se borrará la información actual.\n¿Deseas continuar?"
+            );
+
+            if (!ok) return;
+        }
+
+        // Limpieza total
+        setSearches([]);
+        setActiveSearchId(null);
+        setTipoFilter("");
+
+        // Cargar nuevas unidades
+        setUnitInput(group.units.join("\n"));
+    };
 
     return (
         <div className="min-h-screen bg-white text-black p-6 mt-10">
@@ -362,7 +552,7 @@ export default function MonitoreoPro() {
                         <button
                             key={g.id}
                             type="button"
-                            onClick={() => setUnitInput(g.units.join("\n"))}
+                            onClick={() => handleSelectGroup(g)}
                             className="rounded-full border border-gray-300 bg-white px-4 py-1.5 text-gray-800 hover:bg-gray-100 hover:border-gray-400 transition"
                         >
                             {g.name}
@@ -396,10 +586,39 @@ export default function MonitoreoPro() {
                             Descargar Excel
                         </button>
                     </>
-
-
                 )}
             </div>
+
+            {/* ================= FILTRO POR TIPO ================= */}
+            {searches.length > 0 && (
+                <div className="mb-4 flex gap-2 flex-wrap items-center text-xs">
+                    <span className="text-gray-600 font-semibold">Ver:</span>
+
+                    {[
+                        { k: "", label: "Todos" },
+                        { k: "S", label: "Sucursal" },
+                        { k: "L", label: "Local" },
+                        { k: "A", label: "Agencia" },
+                        { k: "T", label: "Taller" },
+                        { k: "I", label: "Incidencia" },
+                    ].map((t) => (
+                        <button
+                            key={t.k}
+                            onClick={() => setTipoFilter(t.k)}
+                            className={`rounded-full px-4 py-1.5 border transition ${tipoFilter === t.k
+                                ? "bg-blue-600 text-white border-blue-600"
+                                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                                }`}
+                        >
+                            {t.label}
+                        </button>
+                    ))}
+
+                    <span className="ml-2 text-gray-500">
+                        {visibleRows.length} unidades
+                    </span>
+                </div>
+            )}
 
             {/* ================= TABLA ================= */}
             {searches.length > 0 && (
@@ -458,24 +677,20 @@ export default function MonitoreoPro() {
 
                         {/* ============ BODY ============ */}
                         <tbody>
-                            {searches[0].rows.map((_, rowIdx) => (
-                                <tr key={rowIdx} className="border-t hover:bg-gray-50">
+                            {visibleRows.map((row) => (
+                                <tr key={row.id} className="border-t hover:bg-gray-50">
                                     {/* UNIDAD */}
                                     <td className="sticky left-0 z-30 bg-white px-4 py-3 font-bold border-r shadow-[6px_0_12px_-8px_rgba(0,0,0,0.25)]">
-                                        {searches[0].rows[rowIdx].name}
+                                        {row.name}
                                     </td>
 
                                     {/* RUTA */}
                                     <td className="sticky left-[170px] z-30 bg-white px-4 py-3 border-r shadow-[6px_0_12px_-8px_rgba(0,0,0,0.25)]">
                                         <input
                                             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-black text-sm"
-                                            value={searches[0].rows[rowIdx].ruta}
+                                            value={row.ruta}
                                             onChange={(e) =>
-                                                updateRow(
-                                                    searches[0].rows[rowIdx].id,
-                                                    "ruta",
-                                                    e.target.value
-                                                )
+                                                updateRow(row.id, "ruta", e.target.value)
                                             }
                                         />
                                     </td>
@@ -484,11 +699,11 @@ export default function MonitoreoPro() {
                                     <td className="sticky left-[370px] z-30 bg-white px-4 py-3 border-r shadow-[6px_0_12px_-8px_rgba(0,0,0,0.25)]">
                                         <input
                                             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-black text-sm"
-                                            value={searches[0].rows[rowIdx].segmento}
+                                            value={row.segmento}
                                             onChange={(e) =>
                                                 updateRowField(
-                                                    searches[0].id,
-                                                    searches[0].rows[rowIdx].id,
+                                                    baseSearch.id,
+                                                    row.id,
                                                     "segmento",
                                                     e.target.value
                                                 )
@@ -498,7 +713,7 @@ export default function MonitoreoPro() {
 
                                     {/* POR BÚSQUEDA */}
                                     {searches.map((s, searchIdx) => {
-                                        const baseUnit = searches[0].rows[rowIdx];
+                                        const baseUnit = row;
 
                                         const u =
                                             s.rows.find((r) => r.id === baseUnit.id) ??
@@ -517,7 +732,8 @@ export default function MonitoreoPro() {
                                                 <td className="px-3 py-2">
                                                     <input
                                                         className="w-12 rounded-lg border border-gray-300 bg-white text-black text-center font-semibold"
-                                                        value={getTipo(u)}
+                                                        // ✅ editable: valor controlado desde estado real
+                                                        value={u.tipoManual}
                                                         title={getTipoTooltip(u)}
                                                         onChange={(e) =>
                                                             updateRowField(
@@ -542,7 +758,7 @@ export default function MonitoreoPro() {
                                                                 ? `${u.lat.toFixed(6)}, ${u.lon.toFixed(6)}`
                                                                 : "—"}
                                                         </td>
-                                                        <td className="px-3 py-2 border-r">
+                                                        <td className="px-3 py-2 border-r max-w-[260px]">
                                                             {u.zones.length ? (
                                                                 <div className="flex flex-wrap gap-1">
                                                                     {u.zones.map((z) => (

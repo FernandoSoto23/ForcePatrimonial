@@ -104,8 +104,7 @@ function casosReducer(state, action) {
       // 🔴 CRÍTICO SOLO SI:
       // - pánico
       // - o 2+ alertas en el caso
-      actual.critico =
-        actual.esPanico || totalAlertas >= 2;
+      actual.critico = totalAlertas >= 2;
 
       copia[casoId] = actual;
       return copia;
@@ -140,7 +139,8 @@ function casosReducer(state, action) {
 
 export default function Casos() {
   /* VARIABLES DE ESTADO */
-
+  const [filtroCriticosTipo, setFiltroCriticosTipo] = useState("TODOS");
+  const [filtroTipoAlerta, setFiltroTipoAlerta] = useState("TODOS");
   const [casos, dispatchCasos] = useReducer(casosReducer, {});
   const sirena = useRef(null);
   const [showMsg, setShowMsg] = useState(false);
@@ -168,6 +168,8 @@ export default function Casos() {
   });
 
   /* USE REF */
+  const tiposCriticosRef = useRef(new Set());
+
   const unidadesUsuarioRef = useRef(new Set());
   const unidadValidaCacheRef = useRef(new Map());
   const unidadesMapRef = useRef(new Map());
@@ -190,8 +192,41 @@ Motivo: ${motivoCierre}
 ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
 `.trim();
   }, [motivoCierre, observacionesCierre]);
+  const conteoPorTipo = useMemo(() => {
+    if (!casoCriticoSeleccionado) return {};
 
+    return casoCriticoSeleccionado.eventos.reduce((acc, e) => {
+      const k = e.tipoNorm || normalize(e.tipo);
+      acc[k] = (acc[k] || 0) + 1;
+      return acc;
+    }, {});
+  }, [casoCriticoSeleccionado]);
+
+  const tiposDisponibles = Object.keys(conteoPorTipo);
+  const USUARIOS_FILTRO_CRITICOS = [
+    "dfierro@paquetexpress.com,mx",
+    "Fernando Salazar LMM",
+
+  ];
+  const ES_USUARIO_PANICO_GLOBAL = useMemo(() => {
+    return USUARIOS_FILTRO_CRITICOS.includes(usuario?.name);
+  }, [usuario]);
+  const puedeVerFiltroCriticos = useMemo(() => {
+    return USUARIOS_FILTRO_CRITICOS.includes(usuario?.name);
+  }, [usuario]);
   /* FUNCIONES */
+  const eventosFiltrados = useMemo(() => {
+    if (!casoCriticoSeleccionado) return [];
+
+    if (filtroTipoAlerta === "TODOS") {
+      return casoCriticoSeleccionado.eventos;
+    }
+
+    return casoCriticoSeleccionado.eventos.filter(
+      (e) => (e.tipoNorm || normalize(e.tipo)) === filtroTipoAlerta
+    );
+  }, [casoCriticoSeleccionado, filtroTipoAlerta]);
+
   function procesarEnLotes(
     items,
     procesar,
@@ -273,9 +308,21 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
       if (parsed) tsInc = parsed;
     }
 
-    const bloqueHora = obtenerBloqueHora(tsInc);
-    const casoId = `${unidad}_${bloqueHora}`;
-    const tipoNorm = normalize(tipo);
+    const tipoNorm = normalize(tipo); // ✅ PRIMERO
+
+    let casoId;
+
+    // 🔥 REGLA ESPECIAL SOLO PARA DIANA
+    if (
+      ES_USUARIO_PANICO_GLOBAL &&
+      tipoNorm === "PANICO"
+    ) {
+      casoId = `${unidad}_PANICO_GLOBAL`;
+    } else {
+      const bloqueHora = obtenerBloqueHora(tsInc);
+      casoId = `${unidad}_${bloqueHora}`;
+    }
+
     const alertaId = data.id;
 
     dispatchCasos({
@@ -389,6 +436,77 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
     }
   }, []);
 
+  const conteoCriticosPorTipo = useMemo(() => {
+    const acc = {};
+
+    criticos.forEach((c) => {
+      (c.eventos || []).forEach((e) => {
+        const k = e.tipoNorm || normalize(e.tipo);
+        acc[k] = (acc[k] || 0) + 1;
+      });
+    });
+
+    return acc;
+  }, [criticos]);
+
+  const tiposCriticosDisponibles = useMemo(() => {
+    Object.keys(conteoCriticosPorTipo).forEach((t) =>
+      tiposCriticosRef.current.add(t)
+    );
+
+    return Array.from(tiposCriticosRef.current);
+  }, [conteoCriticosPorTipo]);
+  const filtroCriticosSeguro = useMemo(() => {
+    if (
+      filtroCriticosTipo !== "TODOS" &&
+      !tiposCriticosDisponibles.includes(filtroCriticosTipo)
+    ) {
+      return "TODOS";
+    }
+    return filtroCriticosTipo;
+  }, [filtroCriticosTipo, tiposCriticosDisponibles]);
+  const contarPanicos = (caso) => {
+    return (caso.eventos || []).filter(
+      (e) => (e.tipoNorm || normalize(e.tipo)) === "PANICO"
+    ).length;
+  };
+
+  const criticosFiltrados = useMemo(() => {
+    let lista = criticos;
+
+    // 🔥 Regla especial SOLO para usuarios en whitelist
+    if (USUARIOS_FILTRO_CRITICOS.includes(usuario?.name)) {
+      lista = lista.filter((c) => {
+        const panicos = contarPanicos(c);
+
+        // 🧠 Si NO es caso de pánico → se muestra normal
+        if (panicos === 0) return true;
+
+        // 🚨 Si ES pánico → solo si tiene 10 o más
+        return panicos >= 10;
+      });
+    }
+
+    // 🎯 filtro normal por tipo (sin cambios)
+    if (filtroCriticosTipo !== "TODOS") {
+      lista = lista.filter((c) =>
+        (c.eventos || []).some(
+          (e) => (e.tipoNorm || normalize(e.tipo)) === filtroCriticosTipo
+        )
+      );
+    }
+
+    return lista;
+  }, [criticos, filtroCriticosTipo, usuario]);
+
+
+
+  useEffect(() => {
+    if (criticos.length === 0) {
+      tiposCriticosRef.current.clear();
+      setFiltroCriticosTipo("TODOS");
+    }
+  }, [criticos.length]);
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
     if (!token) return;
@@ -403,7 +521,11 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
       console.error("Token inválido", error);
     }
   }, []);
-
+  useEffect(() => {
+    if (casoCriticoSeleccionado) {
+      setFiltroTipoAlerta("TODOS");
+    }
+  }, [casoCriticoSeleccionado]);
   useEffect(() => {
     if (loadingUnits) return;
     if (!Array.isArray(units) || units.length === 0) return;
@@ -544,17 +666,17 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
 
   return (
     <div
-      className={`p-6 bg-gray-100 min-h-screen grid grid-cols-2 gap-6 text-black mt-10
+      className={`p-6 bg-gray-100 min-h-screen grid grid-cols-2 gap-6 text-black 
     ${casoCriticoSeleccionado || casoSeleccionado
-  ? "pointer-events-none"
-  : ""
-}
+          ? "pointer-events-none"
+          : ""
+        }
   `}
     >
 
       {casoCriticoSeleccionado && (
 
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 mt-10 pointer-events-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 mt-5 pointer-events-auto">
 
           <div className="bg-white rounded-xl w-[1000px] max-w-full p-6 shadow-2xl mt-10 max-h-[80vh] overflow-y-auto">
             {/* HEADER */}
@@ -587,10 +709,43 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
                 {casoCriticoSeleccionado.eventos.length}
               </div>
             </div>
+            {/* FILTRO + CONTEO */}
+            <div className="mb-4 space-y-2">
+              <div className="text-xs font-semibold text-gray-700">
+                Filtrar por tipo de alerta
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setFiltroTipoAlerta("TODOS")}
+                  className={`px-3 py-1 rounded-full text-[11px] font-semibold border
+        ${filtroTipoAlerta === "TODOS"
+                      ? "bg-black text-white border-black"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                    }`}
+                >
+                  TODOS ({casoCriticoSeleccionado.eventos.length})
+                </button>
+
+                {tiposDisponibles.map((tipo) => (
+                  <button
+                    key={tipo}
+                    onClick={() => setFiltroTipoAlerta(tipo)}
+                    className={`px-3 py-1 rounded-full text-[11px] font-semibold border
+          ${filtroTipoAlerta === tipo
+                        ? "bg-red-600 text-white border-red-600"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                      }`}
+                  >
+                    {tipo} ({conteoPorTipo[tipo]})
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* HISTORIAL DETALLADO */}
             <div className="border rounded-md p-3 max-h-72 overflow-auto text-xs space-y-3">
-              {casoCriticoSeleccionado.eventos.map((e, i) => (
+              {eventosFiltrados.map((e, i) => (
                 <div key={i} className="border-b last:border-b-0 pb-3">
                   {/* ENCABEZADO */}
                   <div className="flex justify-between items-center mb-1">
@@ -1144,6 +1299,8 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
             )}
           </div>
         </div>
+
+
         <div className="flex-1 overflow-y-auto pr-2">
           {activos.map((c) => (
             <CasoActivoCard
@@ -1193,7 +1350,6 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
             <h2 className="text-xl font-semibold text-red-700">
               🔥 Alertas Críticas
             </h2>
-
             <span
               className={`text-xs font-bold px-2 py-0.5 rounded-full text-white
       ${criticos.length > 0 ? "bg-red-600 animate-pulse" : "bg-red-400"}
@@ -1203,15 +1359,33 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
             </span>
           </div>
 
-          <button
-            onClick={() => dispatchCasos({ type: "CLEAR_CRITICOS" })}
-            className="text-xs bg-red-600 text-white px-3 py-1 rounded flex gap-1 items-center"
-          >
-            <Trash2 size={14} /> Borrar
-          </button>
+          {/* FILTRO CRÍTICOS (SELECT) */}
+          {puedeVerFiltroCriticos && (
+            <div className="mb-3 mt-2 p-3 bg-red-100 border border-red-300 rounded-md">
+              <label className="block text-xs font-semibold text-red-700 mb-1">
+                Filtrar casos críticos por tipo
+              </label>
+
+              <select
+                value={filtroCriticosSeguro}
+                onChange={(e) => setFiltroCriticosTipo(e.target.value)}
+                className="w-full bg-white border border-red-300 rounded-md p-2 text-xs text-red-700 font-semibold focus:outline-none focus:ring-2 focus:ring-red-400"
+              >
+                <option value="TODOS">
+                  TODOS ({criticos.length})
+                </option>
+
+                {tiposCriticosDisponibles.map((tipo) => (
+                  <option key={tipo} value={tipo}>
+                    {tipo} ({conteoCriticosPorTipo[tipo]})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto pr-2">
-          {criticos.map((c) => (
+          {criticosFiltrados.map((c) => (
             <CasoCriticoCard
               key={c.id}
               caso={c}
