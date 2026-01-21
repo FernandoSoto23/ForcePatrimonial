@@ -4,6 +4,7 @@ import { ShieldAlert } from "lucide-react";
 function CasoCriticoCard({
     caso,
     isSelected,
+    hayCriticoFijo,   // 👈 NUEVO
     onProtocolo,
     onAnalizar,
     onMapa,
@@ -25,9 +26,9 @@ function CasoCriticoCard({
 
     return (
         <div
-            className={`mb-3 p-4 rounded-lg border transition-all
+            className={`mb-3 p-4 rounded-lg border transition-none
 ${isSelected
-                    ? "bg-gray-300 border-gray-600 border-l-8 border-l-gray-700 shadow-inner"
+                    ? "bg-gray-200 border-gray-700 border-l-8 border-l-gray-800 shadow-lg ring-2 ring-gray-400"
                     : panico
                         ? "bg-red-50 border-red-500 border-l-8 border-l-red-700"
                         : slta
@@ -135,7 +136,13 @@ ${isSelected
                 >
                     Llamar operador
                 </button>
-
+                {/* 📞 LLAMADA HUMANA */}
+                <button
+                    onClick={() => onLlamarOperador(ultimoEvento, { modo: "humano" })}
+                    className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
+                >
+                    📞 Llamada directa
+                </button>
                 {/* 🗺 UBICACIÓN */}
                 <button
                     onClick={() => onMapa(caso)}

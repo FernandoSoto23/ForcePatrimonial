@@ -41,6 +41,8 @@ import { jwtDecode } from "jwt-decode";
 /* ============================================================
    CONFIG   VARIABLES GLOBALES
 ============================================================ */
+const TWILIO_BACKEND = 'http://localhost:4000';
+
 const API_URL = "https://apipx.onrender.com";
 const SOCKET_URL = "https://apipx.onrender.com";
 const VENTANA = 10 * 60 * 1000; // 10 minutos para correlación
@@ -153,6 +155,7 @@ export default function Casos() {
   const [detalleCierre, setDetalleCierre] = useState("");
   const [motivoCierre, setMotivoCierre] = useState("");
   const [observacionesCierre, setObservacionesCierre] = useState("");
+  const [idCriticoFijo, setIdCriticoFijo] = useState(null);
 
   const [usuario, setUsuario] = useState(null);
   const [mapaUnidad, setMapaUnidad] = useState(null);
@@ -171,39 +174,24 @@ export default function Casos() {
     sinSenal: false,
   });
 
+
+
   /* USE REF */
   const tiposCriticosRef = useRef(new Set());
-
+  const twilioDeviceRef = useRef(null);
   const unidadesUsuarioRef = useRef(new Set());
   const unidadValidaCacheRef = useRef(new Map());
   const unidadesMapRef = useRef(new Map());
   const bufferRef = useRef([]);
-  const listaCongeladaRef = useRef(null);
   const { units, loading: loadingUnits } = useUnits();
-
+  const criticosRefs = useRef({});
   /* USE MEMO */
   const lista = useMemo(() => {
-    const hayModalAbierto =
-      !!casoSeleccionado ||
-      !!casoCriticoSeleccionado ||
-      !!mapaUnidad;
-
-    // 🔒 Si hay modal abierto → congelar lista
-    if (hayModalAbierto && listaCongeladaRef.current) {
-      return listaCongeladaRef.current;
-    }
-
-    const nuevaLista = Object.values(casos)
+    return Object.values(casos)
       .filter(c => Array.isArray(c.eventos))
       .sort((a, b) => tsCaso(b) - tsCaso(a));
+  }, [casos]);
 
-    // 💾 Guardar snapshot si NO hay modal
-    if (!hayModalAbierto) {
-      listaCongeladaRef.current = nuevaLista;
-    }
-
-    return nuevaLista;
-  }, [casos, casoSeleccionado, casoCriticoSeleccionado, mapaUnidad]);
 
   const activos = useMemo(() => lista.filter((c) => !c.critico), [lista]);
 
@@ -237,6 +225,42 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
     return USUARIOS_FILTRO_CRITICOS.includes(usuario?.name);
   }, [usuario]);
   /* FUNCIONES */
+
+
+const conectarTwilio = useCallback(async () => {
+  if (twilioDeviceRef.current) return;
+
+  try {
+    const res = await fetch(`${TWILIO_BACKEND}/conmutador/token`);
+    const { token } = await res.json();
+
+    const device = new window.Twilio.Device(token, {
+      codecPreferences: ["opus", "pcmu"],
+      enableRingingState: true,
+    });
+
+    device.on("registered", () => {
+      console.log("🎧 Twilio WebRTC conectado");
+    });
+
+    device.on("incoming", (call) => {
+      console.log("📞 Llamada entrante (humana)");
+      call.accept(); // 👈 AQUÍ HABLAS DESDE LA PC
+    });
+
+    device.on("error", (err) => {
+      console.error("Twilio error", err);
+    });
+
+    await device.register();
+    twilioDeviceRef.current = device;
+  } catch (e) {
+    console.error("Error conectando Twilio", e);
+  }
+}, []);
+
+
+
   const eventosFiltrados = useMemo(() => {
     if (!casoCriticoSeleccionado) return [];
 
@@ -331,18 +355,22 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
     }
 
     const tipoNorm = normalize(tipo); // ✅ PRIMERO
-
     let casoId;
 
-    // 🔥 REGLA ESPECIAL SOLO PARA DIANA
-    if (
-      ES_USUARIO_PANICO_GLOBAL &&
-      tipoNorm === "PANICO"
-    ) {
+    // 🚨 PÁNICO GLOBAL (sí se agrupa)
+    if (ES_USUARIO_PANICO_GLOBAL && tipoNorm === "PANICO") {
       casoId = `${unidad}_PANICO_GLOBAL`;
-    } else {
+    }
+
+    // 🔥 ALERTAS CRÍTICAS → agrupar por bloque
+    else if (tipoNorm === "PANICO" || tipoNorm === "ASALTO") {
       const bloqueHora = obtenerBloqueHora(tsInc);
       casoId = `${unidad}_${bloqueHora}`;
+    }
+
+    // ⚡ ALERTAS NORMALES → NO agrupar
+    else {
+      casoId = `${unidad}_${data.id}`; // 👈 ID ÚNICO
     }
 
     const alertaId = data.id;
@@ -414,7 +442,8 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
     // 1️⃣ cerrar modales
     setCasoSeleccionado(null);
     setCasoCriticoSeleccionado(null);
-
+    setIdCriticoSeleccionado(null);
+    setIdCriticoFijo(null);
     // 2️⃣ limpiar estado auxiliar
     setMotivoCierre("");
     setObservacionesCierre("");
@@ -444,20 +473,33 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
     });
   }, []);
 
-  const llamarOperadorCb = useCallback(async (evento) => {
-    try {
-      await fetch("https://apipx.onrender.com/iaVoice/llamar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          telefono: "+526681515406",
-          contexto: evento,
-        }),
-      });
-    } catch (e) {
-      toast.error("No se pudo realizar la llamada al operador");
-    }
-  }, []);
+  const llamarOperadorCb = useCallback(
+    async (evento, opciones = {}) => {
+      try {
+        // 👤 LLAMADA HUMANA (NUEVA, NO AFECTA AL BOT)
+        if (opciones.modo === "humano") {
+          await fetch("http://localhost:4000/conmutador/llamar-operador", {
+            method: "POST",
+          });
+          return; // ⬅️ importante: aquí se detiene
+        }
+
+        // 🤖 LLAMADA BOT (LA QUE YA TENÍAS, INTACTA)
+        await fetch("https://apipx.onrender.com/iaVoice/llamar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            telefono: "+526681515406",
+            contexto: evento,
+          }),
+        });
+      } catch (e) {
+        toast.error("No se pudo realizar la llamada");
+      }
+    },
+    []
+  );
+
 
   const conteoCriticosPorTipo = useMemo(() => {
     const acc = {};
@@ -493,24 +535,19 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
       (e) => (e.tipoNorm || normalize(e.tipo)) === "PANICO"
     ).length;
   };
-
   const criticosFiltrados = useMemo(() => {
     let lista = criticos;
 
-    // 🔥 Regla especial SOLO para usuarios en whitelist
+    // 🔥 regla PANICO
     if (USUARIOS_FILTRO_CRITICOS.includes(usuario?.name)) {
       lista = lista.filter((c) => {
         const panicos = contarPanicos(c);
-
-        // 🧠 Si NO es caso de pánico → se muestra normal
         if (panicos === 0) return true;
-
-        // 🚨 Si ES pánico → solo si tiene 10 o más
         return panicos >= 10;
       });
     }
 
-    // 🎯 filtro normal por tipo (sin cambios)
+    // 🎯 filtro por tipo
     if (filtroCriticosTipo !== "TODOS") {
       lista = lista.filter((c) =>
         (c.eventos || []).some(
@@ -523,6 +560,21 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
   }, [criticos, filtroCriticosTipo, usuario]);
 
 
+  useEffect(() => {
+    conectarTwilio();
+  }, [conectarTwilio]);
+
+  useEffect(() => {
+    if (!idCriticoFijo) return;
+
+    const el = criticosRefs.current[idCriticoFijo];
+    if (!el) return;
+
+    el.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [idCriticoFijo]);
 
   useEffect(() => {
     if (criticos.length === 0) {
@@ -1411,22 +1463,33 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
         </div>
         <div className="flex-1 overflow-y-auto pr-2">
           {criticosFiltrados.map((c) => (
-            <CasoCriticoCard
+            <div
               key={c.id}
-              caso={c}
-              isSelected={casoCriticoSeleccionado?.id === c.id}
-              onProtocolo={setCasoCriticoSeleccionado}
-              onAnalizar={analizarCaso}
-              onMapa={verMapa}
-              onLlamarOperador={llamarOperadorCb}
-              esPanico={esPanico}
-              extraerZonas={extraerZonas}
-              formatearFechaHoraCritica={formatearFechaHoraCritica}
-              extraerLugar={extraerLugar}
-              extraerVelocidad={extraerVelocidad}
-              extraerMapsUrl={extraerMapsUrl}
-              MensajeExpandable={MensajeExpandable}
-            />
+              ref={(el) => {
+                if (el) criticosRefs.current[c.id] = el;
+              }}
+            >
+              <CasoCriticoCard
+                key={c.id}
+                caso={c}
+                isSelected={idCriticoFijo === c.id}
+                hayCriticoFijo={!!idCriticoFijo}
+                onProtocolo={(caso) => {
+                  setIdCriticoFijo(caso.id);          // 🔒 ANCLA
+                  setCasoCriticoSeleccionado(caso);  // abre modal
+                }}
+                onAnalizar={analizarCaso}
+                onMapa={verMapa}
+                onLlamarOperador={llamarOperadorCb}
+                esPanico={esPanico}
+                extraerZonas={extraerZonas}
+                formatearFechaHoraCritica={formatearFechaHoraCritica}
+                extraerLugar={extraerLugar}
+                extraerVelocidad={extraerVelocidad}
+                extraerMapsUrl={extraerMapsUrl}
+                MensajeExpandable={MensajeExpandable}
+              />
+            </div>
           ))}
 
 
