@@ -98,13 +98,17 @@ function casosReducer(state, action) {
       actual.combinacion = Object.keys(actual.repeticiones)
         .sort((a, b) => actual.repeticiones[b] - actual.repeticiones[a])
         .join(" + ");
-
       const totalAlertas = actual.eventos.length;
 
-      // 🔴 CRÍTICO SOLO SI:
-      // - pánico
-      // - o 2+ alertas en el caso
-      actual.critico = totalAlertas >= 2;
+      // 🏢 ¿Alguna alerta está dentro de geocerca S (Sucursal)?
+      const estaEnSucursal = actual.eventos.some(
+        (e) => e.geocercaSLTA === "S"
+      );
+
+      // 🔴 REGLA FINAL:
+      // → Caso crítico SOLO si hay 2+ alertas
+      // → Y NO está dentro de sucursal (S)
+      actual.critico = totalAlertas >= 2 && !estaEnSucursal;
 
       copia[casoId] = actual;
       return copia;
@@ -174,14 +178,33 @@ export default function Casos() {
   const unidadValidaCacheRef = useRef(new Map());
   const unidadesMapRef = useRef(new Map());
   const bufferRef = useRef([]);
+  const listaCongeladaRef = useRef(null);
   const { units, loading: loadingUnits } = useUnits();
 
   /* USE MEMO */
   const lista = useMemo(() => {
-    return Object.values(casos)
+    const hayModalAbierto =
+      !!casoSeleccionado ||
+      !!casoCriticoSeleccionado ||
+      !!mapaUnidad;
+
+    // 🔒 Si hay modal abierto → congelar lista
+    if (hayModalAbierto && listaCongeladaRef.current) {
+      return listaCongeladaRef.current;
+    }
+
+    const nuevaLista = Object.values(casos)
       .filter(c => Array.isArray(c.eventos))
       .sort((a, b) => tsCaso(b) - tsCaso(a));
-  }, [casos]);
+
+    // 💾 Guardar snapshot si NO hay modal
+    if (!hayModalAbierto) {
+      listaCongeladaRef.current = nuevaLista;
+    }
+
+    return nuevaLista;
+  }, [casos, casoSeleccionado, casoCriticoSeleccionado, mapaUnidad]);
+
   const activos = useMemo(() => lista.filter((c) => !c.critico), [lista]);
 
   const criticos = useMemo(() => lista.filter((c) => c.critico), [lista]);
@@ -402,6 +425,7 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
       type: "REMOVE",
       casoId,
     });
+    listaCongeladaRef.current = null;
   }
 
   const toggleCaso = useCallback((caso) => {
@@ -1305,6 +1329,7 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
             <CasoActivoCard
               key={c.id}
               caso={c}
+              isSelected={casoSeleccionado?.id === c.id}
               onToggle={toggleCaso}
               onAnalizar={analizarCaso}
               onMapa={verMapa}
@@ -1319,6 +1344,7 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
               extraerMapsUrl={extraerMapsUrl}
               MensajeExpandable={MensajeExpandable}
             />
+
           ))}
 
           {activos.length === 0 && (
@@ -1388,6 +1414,7 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
             <CasoCriticoCard
               key={c.id}
               caso={c}
+              isSelected={casoCriticoSeleccionado?.id === c.id}
               onProtocolo={setCasoCriticoSeleccionado}
               onAnalizar={analizarCaso}
               onMapa={verMapa}

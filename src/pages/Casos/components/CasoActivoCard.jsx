@@ -2,6 +2,7 @@ import React from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 function CasoActivoCard({
     caso,
+    isSelected,
     onToggle,
     onAnalizar,
     onMapa,
@@ -24,17 +25,19 @@ function CasoActivoCard({
     return (
         <div
             className={`mb-3 p-4 rounded-lg border transition-all
-        ${panico
-                    ? "bg-red-50 border-red-400 border-l-8 border-l-red-600"
-                    : slta
-                        ? "bg-green-50 border-green-400 border-l-8 border-l-green-700"
-                        : "bg-white border-gray-300"
+${isSelected
+                    ? "bg-gray-200 border-gray-500 border-l-8 border-l-gray-600 shadow-inner"
+                    : panico
+                        ? "bg-red-50 border-red-400 border-l-8 border-l-red-600"
+                        : slta
+                            ? "bg-green-50 border-green-400 border-l-8 border-l-green-700"
+                            : "bg-white border-gray-300"
                 }`}
         >
             {/* BADGE SLTA */}
             {slta && (
                 <div className="mb-2 inline-flex items-center gap-2 px-2 py-1 rounded-full bg-green-700 text-white text-[11px] font-bold">
-                     {SLTA_LABEL[slta]}
+                    {SLTA_LABEL[slta]}
                 </div>
             )}
 
