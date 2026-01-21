@@ -10,11 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fortawesome/free-solid-svg-icons": "^7.1.0",
+    "@fortawesome/react-fontawesome": "^3.1.1",
     "chart.js": "^4.5.1",
     "framer-motion": "^12.25.0",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^0.562.0",
-    "mapbox-gl": "^3.17.0",
+    "mapbox-gl": "^3.18.0",
     "react": "^19.2.0",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.2.0",
@@ -22,6 +24,7 @@
     "react-map-gl": "^8.1.0",
     "react-router-dom": "^7.12.0",
     "react-toastify": "^11.0.5",
+    "react-window": "^2.2.5",
     "recharts": "^3.6.0",
     "socket.io-client": "^4.8.3",
     "sweetalert2": "^11.26.17",
