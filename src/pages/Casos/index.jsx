@@ -15,6 +15,9 @@ import ProtocoloEnfermedad from "./components/ProtocoloEnfermedad";
 import InseguridadSinRiesgo from "./components/InseguridadSinRiesgo";
 import UnidadDetenida from "./components/UnidadDetenida";
 import UnidadSinSenal from "./components/UnidadSinSenal";
+
+import EvaluacionOperativa from "./components/EvaluacionOperativa/EvaluacionOperativa";
+import { PREGUNTAS_EVALUACION } from "./components/EvaluacionOperativa/preguntasEvaluacion";
 import { detectarGeocercasParaAlerta } from "./utils/geocercasDetector";
 import { tsCaso, esPanico } from "./utils/casos";
 import { obtenerUnitIdDesdeNombre } from "./utils/unidades";
@@ -41,6 +44,7 @@ import { jwtDecode } from "jwt-decode";
 /* ============================================================
    CONFIG   VARIABLES GLOBALES
 ============================================================ */
+
 const TWILIO_BACKEND = 'http://localhost:4000';
 
 const API_URL = "https://apipx.onrender.com";
@@ -145,10 +149,16 @@ function casosReducer(state, action) {
 
 export default function Casos() {
   /* VARIABLES DE ESTADO */
+  /* USE STATE */
   const [filtroCriticosTipo, setFiltroCriticosTipo] = useState("TODOS");
   const [filtroTipoAlerta, setFiltroTipoAlerta] = useState("TODOS");
   const [casos, dispatchCasos] = useReducer(casosReducer, {});
   const sirena = useRef(null);
+  const [evaluacionCritica, setEvaluacionCritica] = useState(
+    Object.fromEntries(
+      PREGUNTAS_EVALUACION.map(p => [p.key, null])
+    )
+  );
   const [showMsg, setShowMsg] = useState(false);
   const [casoSeleccionado, setCasoSeleccionado] = useState(null);
   const [casoCriticoSeleccionado, setCasoCriticoSeleccionado] = useState(null);
@@ -192,7 +202,13 @@ export default function Casos() {
       .sort((a, b) => tsCaso(b) - tsCaso(a));
   }, [casos]);
 
+  const preguntasVisibles = useMemo(() => {
+    return PREGUNTAS_EVALUACION.filter((p) => {
+      if (!p.dependsOn) return true;
 
+      return evaluacionCritica[p.dependsOn] === p.showIf;
+    });
+  }, [evaluacionCritica]);
   const activos = useMemo(() => lista.filter((c) => !c.critico), [lista]);
 
   const criticos = useMemo(() => lista.filter((c) => c.critico), [lista]);
@@ -227,37 +243,37 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
   /* FUNCIONES */
 
 
-const conectarTwilio = useCallback(async () => {
-  if (twilioDeviceRef.current) return;
+  const conectarTwilio = useCallback(async () => {
+    if (twilioDeviceRef.current) return;
 
-  try {
-    const res = await fetch(`${TWILIO_BACKEND}/conmutador/token`);
-    const { token } = await res.json();
+    try {
+      const res = await fetch(`${TWILIO_BACKEND}/conmutador/token`);
+      const { token } = await res.json();
 
-    const device = new window.Twilio.Device(token, {
-      codecPreferences: ["opus", "pcmu"],
-      enableRingingState: true,
-    });
+      const device = new window.Twilio.Device(token, {
+        codecPreferences: ["opus", "pcmu"],
+        enableRingingState: true,
+      });
 
-    device.on("registered", () => {
-      console.log("🎧 Twilio WebRTC conectado");
-    });
+      device.on("registered", () => {
+        console.log("🎧 Twilio WebRTC conectado");
+      });
 
-    device.on("incoming", (call) => {
-      console.log("📞 Llamada entrante (humana)");
-      call.accept(); // 👈 AQUÍ HABLAS DESDE LA PC
-    });
+      device.on("incoming", (call) => {
+        console.log("📞 Llamada entrante (humana)");
+        call.accept(); // 👈 AQUÍ HABLAS DESDE LA PC
+      });
 
-    device.on("error", (err) => {
-      console.error("Twilio error", err);
-    });
+      device.on("error", (err) => {
+        console.error("Twilio error", err);
+      });
 
-    await device.register();
-    twilioDeviceRef.current = device;
-  } catch (e) {
-    console.error("Error conectando Twilio", e);
-  }
-}, []);
+      await device.register();
+      twilioDeviceRef.current = device;
+    } catch (e) {
+      console.error("Error conectando Twilio", e);
+    }
+  }, []);
 
 
 
@@ -332,6 +348,14 @@ const conectarTwilio = useCallback(async () => {
 
     return pertenece;
   }
+  const evaluacionTexto = Object.entries(evaluacionCritica)
+    .map(([key, value]) => {
+      const pregunta = PREGUNTAS_EVALUACION.find(p => p.key === key);
+      if (!pregunta || value === null) return null;
+      return `- ${pregunta.label}: ${value ? "Sí" : "No"}`;
+    })
+    .filter(Boolean)
+    .join("\n");
   const procesarAlerta = (data) => {
     const mensaje = safeDecode(data.mensaje);
     const unidad = (data.unidad || "").trim();
@@ -881,161 +905,11 @@ const conectarTwilio = useCallback(async () => {
 
             {/* ACCIONES */}
             {/* ACCIONES DEL PROTOCOLO */}
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 mt-10">
-              {/* 🚚 ASALTO */}
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={protocolosEjecutados.asalto}
-                  readOnly
-                  className="mt-4 accent-green-600"
-                />
-
-                <ProtocolLauncher
-                  label="Asalto Unidad"
-                  icon="🚚"
-                  variant="outline"
-                  title="Protocolo — Asalto a Unidad"
-                  subtitle="Checks · notas · exportación"
-                  modalIcon={<span aria-hidden>🚚</span>}
-                  onOpen={() => marcarProtocolo("asalto")}
-                >
-                  <ProtocoloAsaltoUnidadUI />
-                </ProtocolLauncher>
-              </div>
-
-              {/* 🚨 PÁNICO */}
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={protocolosEjecutados.panico}
-                  readOnly
-                  className="mt-4 accent-red-600"
-                />
-
-                <ProtocolLauncher
-                  label="Botón de pánico"
-                  icon="🚨"
-                  variant="outline"
-                  title="Protocolo — Botón de pánico"
-                  subtitle="Flujo guiado"
-                  modalIcon={<span aria-hidden>🚨</span>}
-                  onOpen={() => marcarProtocolo("panico")}
-                >
-                  <FlowRunnerBotonPanico />
-                </ProtocolLauncher>
-              </div>
-
-              {/* 🧭 DESVÍO DE RUTA */}
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={protocolosEjecutados.desvio}
-                  readOnly
-                  className="mt-4 accent-indigo-600"
-                />
-
-                <ProtocolLauncher
-                  label="Desvío ruta"
-                  icon="🧭"
-                  variant="outline"
-                  title="Protocolo — Desvío de ruta"
-                  subtitle="Checks y notas"
-                  modalIcon={<span aria-hidden>🧭</span>}
-                  onOpen={() => marcarProtocolo("desvio")}
-                >
-                  <ProtocoloDesvioRutaNoAutorizadoUI />
-                </ProtocolLauncher>
-              </div>
-
-              {/* 💊 ENFERMEDAD */}
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={protocolosEjecutados.enfermedad}
-                  readOnly
-                  className="mt-4 accent-purple-600"
-                />
-
-                <ProtocolLauncher
-                  label="Enfermedad"
-                  icon="💊"
-                  variant="outline"
-                  title="Protocolo — Enfermedad"
-                  subtitle="Lineal"
-                  modalIcon={<span aria-hidden>💊</span>}
-                  onOpen={() => marcarProtocolo("enfermedad")}
-                >
-                  <ProtocoloEnfermedad />
-                </ProtocolLauncher>
-              </div>
-
-              {/* ⚠️ INSEGURIDAD */}
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={protocolosEjecutados.inseguridad}
-                  readOnly
-                  className="mt-4 accent-yellow-600"
-                />
-
-                <ProtocolLauncher
-                  label="Inseguridad"
-                  icon="⚠️"
-                  variant="outline"
-                  title="Protocolo — Inseguridad"
-                  subtitle="Riesgo directo"
-                  modalIcon={<span aria-hidden>⚠️</span>}
-                  onOpen={() => marcarProtocolo("inseguridad")}
-                >
-                  <InseguridadSinRiesgo />
-                </ProtocolLauncher>
-              </div>
-
-              {/* 🛑 UNIDAD DETENIDA */}
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={protocolosEjecutados.detenida}
-                  readOnly
-                  className="mt-4 accent-orange-600"
-                />
-
-                <ProtocolLauncher
-                  label="Unidad detenida"
-                  icon="🛑"
-                  variant="outline"
-                  title="Protocolo — Unidad detenida"
-                  subtitle="Flujo guiado"
-                  modalIcon={<span aria-hidden>🛑</span>}
-                  onOpen={() => marcarProtocolo("detenida")}
-                >
-                  <UnidadDetenida />
-                </ProtocolLauncher>
-              </div>
-
-              {/* 📡 SIN SEÑAL */}
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={protocolosEjecutados.sinSenal}
-                  readOnly
-                  className="mt-4 accent-cyan-600"
-                />
-
-                <ProtocolLauncher
-                  label="Sin señal"
-                  icon="📡"
-                  variant="outline"
-                  title="Protocolo — Unidad sin señal"
-                  subtitle="Lineal interactivo"
-                  modalIcon={<span aria-hidden>📡</span>}
-                  onOpen={() => marcarProtocolo("sinSenal")}
-                >
-                  <UnidadSinSenal />
-                </ProtocolLauncher>
-              </div>
-            </div>
+            {/* 🧠 EVALUACIÓN OPERATIVA */}
+            <EvaluacionOperativa
+              value={evaluacionCritica}
+              onChange={setEvaluacionCritica}
+            />
 
             {/* 📝 NOTA DE CIERRE CASO CRÍTICO */}
             <div className="mt-4">
@@ -1094,13 +968,6 @@ const conectarTwilio = useCallback(async () => {
               </button>
               <button
                 onClick={async () => {
-                  // 🚫 0) VALIDAR PROTOCOLOS EJECUTADOS
-                  if (!hayAlMenosUnProtocoloEjecutado()) {
-                    toast.error(
-                      "Debes ejecutar al menos un protocolo antes de cerrar el caso"
-                    );
-                    return;
-                  }
 
                   // 🚫 1) VALIDAR MOTIVO
                   if (!motivoCierre) {
@@ -1110,12 +977,13 @@ const conectarTwilio = useCallback(async () => {
 
                   // 🚫 2) VALIDAR OBSERVACIONES SI ES OTRO
                   if (
-                    motivoCierre === "OTRO" &&
-                    observacionesCierre.trim().length < 10
+                    evaluacionCritica.contactoUnidad === null ||
+                    evaluacionCritica.camarasRevisadas === null
                   ) {
-                    toast.error("Debes especificar el motivo del cierre");
+                    toast.error("Debes completar la evaluación operativa del evento");
                     return;
                   }
+
 
                   const result = await Swal.fire({
                     title: "Cerrar caso crítico",
@@ -1146,7 +1014,15 @@ const conectarTwilio = useCallback(async () => {
                         detalle_cierre: `
 Motivo: ${motivoCierre}
 ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
-          `.trim(),
+
+Evaluación operativa:
+${evaluacionTexto}
+
+Cierre realizado por: ${usuario.name}
+Fecha cierre: ${new Date().toLocaleString()}
+Unidad: ${casoCriticoSeleccionado.unidad}
+`.trim(),
+
                       }),
                     });
 
