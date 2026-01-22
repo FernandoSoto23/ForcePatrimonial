@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, useCallback, useReducer } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+  useReducer,
+} from "react";
 
 import { io } from "socket.io-client";
 import { ShieldAlert, Trash2, ChevronDown, ChevronUp } from "lucide-react";
@@ -41,11 +48,12 @@ import {
 import { extraerLatLng, extraerZonas } from "./utils/geocercas";
 import MensajeExpandable from "./components/MensajeExpandible";
 import { jwtDecode } from "jwt-decode";
+import ResumenCargaAlertas from "./components/ResumenCargaAlertas";
 /* ============================================================
    CONFIG   VARIABLES GLOBALES
 ============================================================ */
 
-const TWILIO_BACKEND = 'http://localhost:4000';
+const TWILIO_BACKEND = "http://localhost:4000";
 
 const API_URL = "https://apipx.onrender.com";
 const SOCKET_URL = "https://apipx.onrender.com";
@@ -81,9 +89,7 @@ function casosReducer(state, action) {
         const nuevoEvento = payload.base.eventos[0];
 
         // 🛑 DEDUPLICACIÓN POR ID
-        const yaExiste = actual.eventos.some(
-          (e) => e.id === nuevoEvento.id
-        );
+        const yaExiste = actual.eventos.some((e) => e.id === nuevoEvento.id);
 
         if (yaExiste) return state;
 
@@ -107,9 +113,7 @@ function casosReducer(state, action) {
       const totalAlertas = actual.eventos.length;
 
       // 🏢 ¿Alguna alerta está dentro de geocerca S (Sucursal)?
-      const estaEnSucursal = actual.eventos.some(
-        (e) => e.geocercaSLTA === "S"
-      );
+      const estaEnSucursal = actual.eventos.some((e) => e.geocercaSLTA === "S");
 
       // 🔴 REGLA FINAL:
       // → Caso crítico SOLO si hay 2+ alertas
@@ -137,15 +141,13 @@ function casosReducer(state, action) {
 
     case "CLEAR_CRITICOS":
       return Object.fromEntries(
-        Object.entries(state).filter(([, v]) => !v.critico)
+        Object.entries(state).filter(([, v]) => !v.critico),
       );
 
     default:
       return state;
   }
 }
-
-
 
 export default function Casos() {
   /* VARIABLES DE ESTADO */
@@ -155,9 +157,7 @@ export default function Casos() {
   const [casos, dispatchCasos] = useReducer(casosReducer, {});
   const sirena = useRef(null);
   const [evaluacionCritica, setEvaluacionCritica] = useState(
-    Object.fromEntries(
-      PREGUNTAS_EVALUACION.map(p => [p.key, null])
-    )
+    Object.fromEntries(PREGUNTAS_EVALUACION.map((p) => [p.key, null])),
   );
   const [showMsg, setShowMsg] = useState(false);
   const [casoSeleccionado, setCasoSeleccionado] = useState(null);
@@ -184,8 +184,6 @@ export default function Casos() {
     sinSenal: false,
   });
 
-
-
   /* USE REF */
   const tiposCriticosRef = useRef(new Set());
   const twilioDeviceRef = useRef(null);
@@ -198,7 +196,7 @@ export default function Casos() {
   /* USE MEMO */
   const lista = useMemo(() => {
     return Object.values(casos)
-      .filter(c => Array.isArray(c.eventos))
+      .filter((c) => Array.isArray(c.eventos))
       .sort((a, b) => tsCaso(b) - tsCaso(a));
   }, [casos]);
 
@@ -230,10 +228,7 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
   }, [casoCriticoSeleccionado]);
 
   const tiposDisponibles = Object.keys(conteoPorTipo);
-  const USUARIOS_FILTRO_CRITICOS = [
-    "dfierro@paquetexpress.com,mx",
-
-  ];
+  const USUARIOS_FILTRO_CRITICOS = ["dfierro@paquetexpress.com,mx"];
   const ES_USUARIO_PANICO_GLOBAL = useMemo(() => {
     return USUARIOS_FILTRO_CRITICOS.includes(usuario?.name);
   }, [usuario]);
@@ -241,7 +236,6 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
     return USUARIOS_FILTRO_CRITICOS.includes(usuario?.name);
   }, [usuario]);
   /* FUNCIONES */
-
 
   const conectarTwilio = useCallback(async () => {
     if (twilioDeviceRef.current) return;
@@ -275,8 +269,6 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
     }
   }, []);
 
-
-
   const eventosFiltrados = useMemo(() => {
     if (!casoCriticoSeleccionado) return [];
 
@@ -285,7 +277,7 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
     }
 
     return casoCriticoSeleccionado.eventos.filter(
-      (e) => (e.tipoNorm || normalize(e.tipo)) === filtroTipoAlerta
+      (e) => (e.tipoNorm || normalize(e.tipo)) === filtroTipoAlerta,
     );
   }, [casoCriticoSeleccionado, filtroTipoAlerta]);
 
@@ -294,7 +286,7 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
     procesar,
     batchSize = 200,
     onProgress,
-    onFinish
+    onFinish,
   ) {
     let index = 0;
 
@@ -350,7 +342,7 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
   }
   const evaluacionTexto = Object.entries(evaluacionCritica)
     .map(([key, value]) => {
-      const pregunta = PREGUNTAS_EVALUACION.find(p => p.key === key);
+      const pregunta = PREGUNTAS_EVALUACION.find((p) => p.key === key);
       if (!pregunta || value === null) return null;
       return `- ${pregunta.label}: ${value ? "Sí" : "No"}`;
     })
@@ -435,9 +427,7 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
         zonas: extraerZonas(data.geocercas_json),
       },
     });
-
   };
-
 
   const resumenReps = (reps) => {
     const entries = Object.entries(reps || {});
@@ -497,33 +487,29 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
     });
   }, []);
 
-  const llamarOperadorCb = useCallback(
-    async (evento, opciones = {}) => {
-      try {
-        // 👤 LLAMADA HUMANA (NUEVA, NO AFECTA AL BOT)
-        if (opciones.modo === "humano") {
-          await fetch("http://localhost:4000/conmutador/llamar-operador", {
-            method: "POST",
-          });
-          return; // ⬅️ importante: aquí se detiene
-        }
-
-        // 🤖 LLAMADA BOT (LA QUE YA TENÍAS, INTACTA)
-        await fetch("https://apipx.onrender.com/iaVoice/llamar", {
+  const llamarOperadorCb = useCallback(async (evento, opciones = {}) => {
+    try {
+      // 👤 LLAMADA HUMANA (NUEVA, NO AFECTA AL BOT)
+      if (opciones.modo === "humano") {
+        await fetch("http://localhost:4000/conmutador/llamar-operador", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            telefono: "+526681515406",
-            contexto: evento,
-          }),
         });
-      } catch (e) {
-        toast.error("No se pudo realizar la llamada");
+        return; // ⬅️ importante: aquí se detiene
       }
-    },
-    []
-  );
 
+      // 🤖 LLAMADA BOT (LA QUE YA TENÍAS, INTACTA)
+      await fetch("https://apipx.onrender.com/iaVoice/llamar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          telefono: "+526681515406",
+          contexto: evento,
+        }),
+      });
+    } catch (e) {
+      toast.error("No se pudo realizar la llamada");
+    }
+  }, []);
 
   const conteoCriticosPorTipo = useMemo(() => {
     const acc = {};
@@ -540,7 +526,7 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
 
   const tiposCriticosDisponibles = useMemo(() => {
     Object.keys(conteoCriticosPorTipo).forEach((t) =>
-      tiposCriticosRef.current.add(t)
+      tiposCriticosRef.current.add(t),
     );
 
     return Array.from(tiposCriticosRef.current);
@@ -556,7 +542,7 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
   }, [filtroCriticosTipo, tiposCriticosDisponibles]);
   const contarPanicos = (caso) => {
     return (caso.eventos || []).filter(
-      (e) => (e.tipoNorm || normalize(e.tipo)) === "PANICO"
+      (e) => (e.tipoNorm || normalize(e.tipo)) === "PANICO",
     ).length;
   };
   const criticosFiltrados = useMemo(() => {
@@ -575,14 +561,13 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
     if (filtroCriticosTipo !== "TODOS") {
       lista = lista.filter((c) =>
         (c.eventos || []).some(
-          (e) => (e.tipoNorm || normalize(e.tipo)) === filtroCriticosTipo
-        )
+          (e) => (e.tipoNorm || normalize(e.tipo)) === filtroCriticosTipo,
+        ),
       );
     }
 
     return lista;
   }, [criticos, filtroCriticosTipo, usuario]);
-
 
   useEffect(() => {
     conectarTwilio();
@@ -662,7 +647,7 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
 
         // 🔐 filtrar por unidades del usuario
         const filtradas = todas.filter((a) =>
-          unidadPerteneceAlUsuario(a.unidad)
+          unidadPerteneceAlUsuario(a.unidad),
         );
         console.log(filtradas);
         setAlertasFiltradas(filtradas.length);
@@ -691,7 +676,7 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
           () => {
             setCargaTerminada(true);
             console.log("✅ Carga inicial COMPLETA");
-          }
+          },
         );
       } catch (e) {
         console.error("❌ Error cargando alertas:", e);
@@ -766,17 +751,11 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
   return (
     <div
       className={`p-6 bg-gray-100 min-h-screen grid grid-cols-2 gap-6 text-black 
-    ${casoCriticoSeleccionado || casoSeleccionado
-          ? "pointer-events-none"
-          : ""
-        }
+${casoCriticoSeleccionado ? "pointer-events-none" : ""}
   `}
     >
-
       {casoCriticoSeleccionado && (
-
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 mt-5 pointer-events-auto">
-
           <div className="bg-white rounded-xl w-[1000px] max-w-full p-6 shadow-2xl mt-10 max-h-[80vh] overflow-y-auto">
             {/* HEADER */}
             <div className="flex justify-between items-start mb-4">
@@ -818,10 +797,11 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
                 <button
                   onClick={() => setFiltroTipoAlerta("TODOS")}
                   className={`px-3 py-1 rounded-full text-[11px] font-semibold border
-        ${filtroTipoAlerta === "TODOS"
-                      ? "bg-black text-white border-black"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                    }`}
+        ${
+          filtroTipoAlerta === "TODOS"
+            ? "bg-black text-white border-black"
+            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+        }`}
                 >
                   TODOS ({casoCriticoSeleccionado.eventos.length})
                 </button>
@@ -831,10 +811,11 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
                     key={tipo}
                     onClick={() => setFiltroTipoAlerta(tipo)}
                     className={`px-3 py-1 rounded-full text-[11px] font-semibold border
-          ${filtroTipoAlerta === tipo
-                        ? "bg-red-600 text-white border-red-600"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                      }`}
+          ${
+            filtroTipoAlerta === tipo
+              ? "bg-red-600 text-white border-red-600"
+              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+          }`}
                   >
                     {tipo} ({conteoPorTipo[tipo]})
                   </button>
@@ -948,7 +929,6 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
                 )}
               </div>
 
-
               <div className="text-[10px] text-gray-500 mt-1">
                 {detalleCierreFinal.length} caracteres
               </div>
@@ -968,7 +948,6 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
               </button>
               <button
                 onClick={async () => {
-
                   // 🚫 1) VALIDAR MOTIVO
                   if (!motivoCierre) {
                     toast.error("Debes seleccionar un motivo de cierre");
@@ -980,10 +959,11 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
                     evaluacionCritica.contactoUnidad === null ||
                     evaluacionCritica.camarasRevisadas === null
                   ) {
-                    toast.error("Debes completar la evaluación operativa del evento");
+                    toast.error(
+                      "Debes completar la evaluación operativa del evento",
+                    );
                     return;
                   }
-
 
                   const result = await Swal.fire({
                     title: "Cerrar caso crítico",
@@ -1002,16 +982,20 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
                   if (!result.isConfirmed) return;
 
                   try {
-                    const resp = await fetch(`${API_URL}/alertas/cerrar-multiples`, {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify({
-                        alertas: casoCriticoSeleccionado.eventos.map((e) => e.id),
-                        id_usuario: usuario.id,
-                        nombre_usuario: usuario.name,
-                        detalle_cierre: `
+                    const resp = await fetch(
+                      `${API_URL}/alertas/cerrar-multiples`,
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                          alertas: casoCriticoSeleccionado.eventos.map(
+                            (e) => e.id,
+                          ),
+                          id_usuario: usuario.id,
+                          nombre_usuario: usuario.name,
+                          detalle_cierre: `
 Motivo: ${motivoCierre}
 ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
 
@@ -1022,9 +1006,9 @@ Cierre realizado por: ${usuario.name}
 Fecha cierre: ${new Date().toLocaleString()}
 Unidad: ${casoCriticoSeleccionado.unidad}
 `.trim(),
-
-                      }),
-                    });
+                        }),
+                      },
+                    );
 
                     if (!resp.ok) {
                       const errorText = await resp.text();
@@ -1040,19 +1024,20 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                 }}
                 disabled={
                   !motivoCierre ||
-                  (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
+                  (motivoCierre === "OTRO" &&
+                    observacionesCierre.trim().length < 10)
                 }
                 className={`text-xs px-4 py-1 rounded text-white transition
-    ${!motivoCierre ||
-                    (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-red-600 hover:bg-red-700"
-                  }
+    ${
+      !motivoCierre ||
+      (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
+        ? "bg-gray-400 cursor-not-allowed"
+        : "bg-red-600 hover:bg-red-700"
+    }
   `}
               >
                 Cerrar caso crítico
               </button>
-
             </div>
           </div>
         </div>
@@ -1155,13 +1140,13 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                   // 🚫 1) VALIDACIÓN FUERTE
                   if (!detalleCierre || detalleCierre.trim().length < 50) {
                     toast.error(
-                      "La nota de cierre debe tener al menos 50 caracteres"
+                      "La nota de cierre debe tener al menos 50 caracteres",
                     );
                     return;
                   }
 
                   const confirmar = window.confirm(
-                    "¿Te gustaría cambiar el estado de esta alerta?"
+                    "¿Te gustaría cambiar el estado de esta alerta?",
                   );
 
                   if (!confirmar) return;
@@ -1189,21 +1174,22 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                     // ✅ 3) ACTUALIZAR ESTADO LOCAL SOLO SI BACKEND OK
                     cerrarModalYEliminarCaso(casoSeleccionado.id);
                     toast.success(
-                      `La alerta ${casoSeleccionado.eventos[0].tipo} fue cerrada correctamente`
+                      `La alerta ${casoSeleccionado.eventos[0].tipo} fue cerrada correctamente`,
                     );
                   } catch (error) {
                     console.error("❌ Error cerrando alerta:", error);
                     toast.error(
-                      "No se pudo cerrar la alerta. Intenta nuevamente."
+                      "No se pudo cerrar la alerta. Intenta nuevamente.",
                     );
                   }
                 }}
                 disabled={detalleCierre.trim().length < 50}
                 className={`text-xs px-3 py-1 rounded text-white
-    ${detalleCierre.trim().length < 50
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-green-600 hover:bg-green-700"
-                  }
+    ${
+      detalleCierre.trim().length < 50
+        ? "bg-gray-400 cursor-not-allowed"
+        : "bg-green-600 hover:bg-green-700"
+    }
   `}
               >
                 Cerrar caso
@@ -1225,32 +1211,8 @@ Unidad: ${casoCriticoSeleccionado.unidad}
               {activos.length}
             </span>
           </div>
-          <div className="mb-3 p-3 rounded-md bg-gray-200 text-xs text-gray-800">
-            <div>
-              Total recibidas: <strong>{totalAlertas}</strong>
-            </div>
-            <div>
-              Del usuario: <strong>{alertasFiltradas}</strong>
-            </div>
-            <div>
-              Procesadas:{" "}
-              <strong>
-                {alertasProcesadas} / {alertasFiltradas}
-              </strong>
-            </div>
 
-            {!cargaTerminada ? (
-              <div className="mt-1 text-yellow-700 font-semibold">
-                ⏳ Cargando alertas…
-              </div>
-            ) : (
-              <div className="mt-1 text-green-700 font-semibold">
-                ✅ Alertas listas
-              </div>
-            )}
-          </div>
         </div>
-
 
         <div className="flex-1 overflow-y-auto pr-2">
           {activos.map((c) => (
@@ -1272,16 +1234,12 @@ Unidad: ${casoCriticoSeleccionado.unidad}
               extraerMapsUrl={extraerMapsUrl}
               MensajeExpandable={MensajeExpandable}
             />
-
           ))}
 
           {activos.length === 0 && (
-            <div className="text-sm text-gray-500">
-              Sin alertas activas.
-            </div>
+            <div className="text-sm text-gray-500">Sin alertas activas.</div>
           )}
         </div>
-
       </div>
       {/* IA CONVERSACIONAL */}
       {/*       <div className="mt-4 border rounded p-3 bg-gray-50">
@@ -1324,9 +1282,7 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                 onChange={(e) => setFiltroCriticosTipo(e.target.value)}
                 className="w-full bg-white border border-red-300 rounded-md p-2 text-xs text-red-700 font-semibold focus:outline-none focus:ring-2 focus:ring-red-400"
               >
-                <option value="TODOS">
-                  TODOS ({criticos.length})
-                </option>
+                <option value="TODOS">TODOS ({criticos.length})</option>
 
                 {tiposCriticosDisponibles.map((tipo) => (
                   <option key={tipo} value={tipo}>
@@ -1351,8 +1307,8 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                 isSelected={idCriticoFijo === c.id}
                 hayCriticoFijo={!!idCriticoFijo}
                 onProtocolo={(caso) => {
-                  setIdCriticoFijo(caso.id);          // 🔒 ANCLA
-                  setCasoCriticoSeleccionado(caso);  // abre modal
+                  setIdCriticoFijo(caso.id); // 🔒 ANCLA
+                  setCasoCriticoSeleccionado(caso); // abre modal
                 }}
                 onAnalizar={analizarCaso}
                 onMapa={verMapa}
@@ -1367,7 +1323,6 @@ Unidad: ${casoCriticoSeleccionado.unidad}
               />
             </div>
           ))}
-
 
           {criticos.length === 0 && (
             <div className="text-sm text-red-700/70">
