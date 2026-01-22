@@ -1,21 +1,21 @@
 import { useMemo } from "react";
 import { PREGUNTAS_EVALUACION } from "./preguntasEvaluacion";
 
-export default function EvaluacionOperativa({
-  value,
-  onChange,
-}) {
+export default function EvaluacionOperativa({ value, onChange }) {
   const preguntasVisibles = useMemo(() => {
     return PREGUNTAS_EVALUACION.filter((p) => {
       if (!p.dependsOn) return true;
-      return value[p.dependsOn] === p.showIf;
+      return value[p.dependsOn]?.respuesta === p.showIf;
     });
   }, [value]);
 
   const responder = (key, respuesta) => {
     onChange({
       ...value,
-      [key]: respuesta,
+      [key]: {
+        respuesta,
+        hora: new Date().toISOString(),
+      },
     });
   };
 
@@ -33,9 +33,10 @@ export default function EvaluacionOperativa({
             <button
               onClick={() => responder(key, true)}
               className={`px-3 py-1 rounded text-xs font-semibold
-                ${value[key] === true
-                  ? "bg-green-600 text-white"
-                  : "bg-white border border-gray-300 text-gray-700"
+                ${
+                  value[key]?.respuesta === true
+                    ? "bg-green-600 text-white"
+                    : "bg-white border border-gray-300 text-gray-700"
                 }`}
             >
               Sí
@@ -44,9 +45,10 @@ export default function EvaluacionOperativa({
             <button
               onClick={() => responder(key, false)}
               className={`px-3 py-1 rounded text-xs font-semibold
-                ${value[key] === false
-                  ? "bg-red-600 text-white"
-                  : "bg-white border border-gray-300 text-gray-700"
+                ${
+                  value[key] === false
+                    ? "bg-red-600 text-white"
+                    : "bg-white border border-gray-300 text-gray-700"
                 }`}
             >
               No

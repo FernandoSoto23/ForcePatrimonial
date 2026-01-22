@@ -50,8 +50,8 @@ import MensajeExpandable from "./components/MensajeExpandible";
 import { jwtDecode } from "jwt-decode";
 import ResumenCargaAlertas from "./components/ResumenCargaAlertas";
 /* ============================================================
-   CONFIG   VARIABLES GLOBALES
-============================================================ */
+    CONFIG   VARIABLES GLOBALES
+  ============================================================ */
 
 const TWILIO_BACKEND = "http://localhost:4000";
 
@@ -100,8 +100,8 @@ function casosReducer(state, action) {
       }
 
       /* ===============================
-         🔥 REGLA FINAL (SIMPLE Y CORRECTA)
-      =============================== */
+          🔥 REGLA FINAL (SIMPLE Y CORRECTA)
+        =============================== */
 
       // 🚨 PÁNICO
       actual.esPanico = esPanico(actual);
@@ -113,12 +113,22 @@ function casosReducer(state, action) {
       const totalAlertas = actual.eventos.length;
 
       // 🏢 ¿Alguna alerta está dentro de geocerca S (Sucursal)?
-      const estaEnSucursal = actual.eventos.some((e) => e.geocercaSLTA === "S");
+      // ❌ BLOQUEO: si alguna alerta está en S, NO es crítico
+      const tieneSucursal = actual.eventos.some((e) => e.geocercaSLTA === "S");
 
-      // 🔴 REGLA FINAL:
-      // → Caso crítico SOLO si hay 2+ alertas
-      // → Y NO está dentro de sucursal (S)
-      actual.critico = totalAlertas >= 2 && !estaEnSucursal;
+      // ✅ CRÍTICO: 2+ alertas Y ninguna en S
+      const tiposCriticos = [
+        "PANICO",
+        "JAMMER",
+        "SIN_SENAL",
+        "DESVIO",
+        "DETENIDA",
+      ];
+
+      actual.critico =
+        !tieneSucursal &&
+        actual.eventos.some((e) => tiposCriticos.includes(e.tipoNorm)) &&
+        (actual.esPanico || totalAlertas >= 1);
 
       copia[casoId] = actual;
       return copia;
@@ -213,9 +223,9 @@ export default function Casos() {
   const detalleCierreFinal = useMemo(() => {
     if (!motivoCierre) return "";
     return `
-Motivo: ${motivoCierre}
-${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
-`.trim();
+  Motivo: ${motivoCierre}
+  ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
+  `.trim();
   }, [motivoCierre, observacionesCierre]);
   const conteoPorTipo = useMemo(() => {
     if (!casoCriticoSeleccionado) return {};
@@ -228,13 +238,7 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
   }, [casoCriticoSeleccionado]);
 
   const tiposDisponibles = Object.keys(conteoPorTipo);
-  const USUARIOS_FILTRO_CRITICOS = ["dfierro@paquetexpress.com,mx"];
-  const ES_USUARIO_PANICO_GLOBAL = useMemo(() => {
-    return USUARIOS_FILTRO_CRITICOS.includes(usuario?.name);
-  }, [usuario]);
-  const puedeVerFiltroCriticos = useMemo(() => {
-    return USUARIOS_FILTRO_CRITICOS.includes(usuario?.name);
-  }, [usuario]);
+
   /* FUNCIONES */
 
   const conectarTwilio = useCallback(async () => {
@@ -350,14 +354,14 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
     .join("\n");
   const procesarAlerta = (data) => {
     const mensaje = safeDecode(data.mensaje);
-    const unidad = (data.unidad || "").trim();
-    const tipo = (data.tipo || "").trim();
-    if (!mensaje || !unidad || !tipo) return;
+    const unidadRaw = (data.unidad || "").trim();
+    const tipoRaw = (data.tipo || "").trim();
+    if (!mensaje || !unidadRaw || !tipoRaw) return;
 
-    const key = normalize(unidad);
-    if (!unidadesUsuarioRef.current.has(key)) return;
+    const unidadKey = normalize(unidadRaw);
+    if (!unidadesUsuarioRef.current.has(unidadKey)) return;
 
-    const unitId = unidadesMapRef.current.get(key);
+    const unitId = unidadesMapRef.current.get(unidadKey);
     if (!unitId) return;
 
     const tsRx = Date.now();
@@ -370,26 +374,12 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
       if (parsed) tsInc = parsed;
     }
 
-    const tipoNorm = normalize(tipo); // ✅ PRIMERO
-    let casoId;
+    const bloqueHora = obtenerBloqueHora(tsInc);
 
-    // 🚨 PÁNICO GLOBAL (sí se agrupa)
-    if (ES_USUARIO_PANICO_GLOBAL && tipoNorm === "PANICO") {
-      casoId = `${unidad}_PANICO_GLOBAL`;
-    }
+    // 🔑 CLAVE: unidad normalizada
+    const casoId = `${unidadKey}_${bloqueHora}`;
 
-    // 🔥 ALERTAS CRÍTICAS → agrupar por bloque
-    else if (tipoNorm === "PANICO" || tipoNorm === "ASALTO") {
-      const bloqueHora = obtenerBloqueHora(tsInc);
-      casoId = `${unidad}_${bloqueHora}`;
-    }
-
-    // ⚡ ALERTAS NORMALES → NO agrupar
-    else {
-      casoId = `${unidad}_${data.id}`; // 👈 ID ÚNICO
-    }
-
-    const alertaId = data.id;
+    const tipoNorm = normalize(tipoRaw);
 
     dispatchCasos({
       type: "ADD_ALERTA",
@@ -397,12 +387,12 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
       payload: {
         base: {
           id: casoId,
-          unidad,
+          unidad: unidadRaw, // bonito
           unitId,
           eventos: [
             {
-              id: alertaId,
-              tipo,
+              id: data.id,
+              tipo: tipoRaw,
               tipoNorm,
               mensaje,
               tsRx,
@@ -420,11 +410,6 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
           estado: "NUEVO",
           zonas: extraerZonas(data.geocercas_json),
         },
-        // 👇 NO mandes estos valores
-        eventos: undefined,
-        repeticiones: undefined,
-        combinacion: undefined,
-        zonas: extraerZonas(data.geocercas_json),
       },
     });
   };
@@ -548,16 +533,6 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
   const criticosFiltrados = useMemo(() => {
     let lista = criticos;
 
-    // 🔥 regla PANICO
-    if (USUARIOS_FILTRO_CRITICOS.includes(usuario?.name)) {
-      lista = lista.filter((c) => {
-        const panicos = contarPanicos(c);
-        if (panicos === 0) return true;
-        return panicos >= 10;
-      });
-    }
-
-    // 🎯 filtro por tipo
     if (filtroCriticosTipo !== "TODOS") {
       lista = lista.filter((c) =>
         (c.eventos || []).some(
@@ -567,7 +542,7 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
     }
 
     return lista;
-  }, [criticos, filtroCriticosTipo, usuario]);
+  }, [criticos, filtroCriticosTipo]);
 
   useEffect(() => {
     conectarTwilio();
@@ -751,8 +726,8 @@ ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
   return (
     <div
       className={`p-6 bg-gray-100 min-h-screen grid grid-cols-2 gap-6 text-black 
-${casoCriticoSeleccionado ? "pointer-events-none" : ""}
-  `}
+  ${casoCriticoSeleccionado ? "pointer-events-none" : ""}
+    `}
     >
       {casoCriticoSeleccionado && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 mt-5 pointer-events-auto">
@@ -797,11 +772,11 @@ ${casoCriticoSeleccionado ? "pointer-events-none" : ""}
                 <button
                   onClick={() => setFiltroTipoAlerta("TODOS")}
                   className={`px-3 py-1 rounded-full text-[11px] font-semibold border
-        ${
-          filtroTipoAlerta === "TODOS"
-            ? "bg-black text-white border-black"
-            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-        }`}
+          ${
+            filtroTipoAlerta === "TODOS"
+              ? "bg-black text-white border-black"
+              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+          }`}
                 >
                   TODOS ({casoCriticoSeleccionado.eventos.length})
                 </button>
@@ -811,11 +786,11 @@ ${casoCriticoSeleccionado ? "pointer-events-none" : ""}
                     key={tipo}
                     onClick={() => setFiltroTipoAlerta(tipo)}
                     className={`px-3 py-1 rounded-full text-[11px] font-semibold border
-          ${
-            filtroTipoAlerta === tipo
-              ? "bg-red-600 text-white border-red-600"
-              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-          }`}
+            ${
+              filtroTipoAlerta === tipo
+                ? "bg-red-600 text-white border-red-600"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+            }`}
                   >
                     {tipo} ({conteoPorTipo[tipo]})
                   </button>
@@ -968,9 +943,9 @@ ${casoCriticoSeleccionado ? "pointer-events-none" : ""}
                   const result = await Swal.fire({
                     title: "Cerrar caso crítico",
                     html: `
-        <p>Estás a punto de cerrar un <b>caso crítico</b>.</p>
-        <p>Esta acción cerrará <b>todas las alertas asociadas</b>.</p>
-      `,
+          <p>Estás a punto de cerrar un <b>caso crítico</b>.</p>
+          <p>Esta acción cerrará <b>todas las alertas asociadas</b>.</p>
+        `,
                     icon: "warning",
                     showCancelButton: true,
                     confirmButtonText: "Sí, cerrar caso",
@@ -996,16 +971,16 @@ ${casoCriticoSeleccionado ? "pointer-events-none" : ""}
                           id_usuario: usuario.id,
                           nombre_usuario: usuario.name,
                           detalle_cierre: `
-Motivo: ${motivoCierre}
-${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
+  Motivo: ${motivoCierre}
+  ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
 
-Evaluación operativa:
-${evaluacionTexto}
+  Evaluación operativa:
+  ${evaluacionTexto}
 
-Cierre realizado por: ${usuario.name}
-Fecha cierre: ${new Date().toLocaleString()}
-Unidad: ${casoCriticoSeleccionado.unidad}
-`.trim(),
+  Cierre realizado por: ${usuario.name}
+  Fecha cierre: ${new Date().toLocaleString()}
+  Unidad: ${casoCriticoSeleccionado.unidad}
+  `.trim(),
                         }),
                       },
                     );
@@ -1028,13 +1003,13 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                     observacionesCierre.trim().length < 10)
                 }
                 className={`text-xs px-4 py-1 rounded text-white transition
-    ${
-      !motivoCierre ||
-      (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
-        ? "bg-gray-400 cursor-not-allowed"
-        : "bg-red-600 hover:bg-red-700"
-    }
-  `}
+      ${
+        !motivoCierre ||
+        (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
+          ? "bg-gray-400 cursor-not-allowed"
+          : "bg-red-600 hover:bg-red-700"
+      }
+    `}
               >
                 Cerrar caso crítico
               </button>
@@ -1108,17 +1083,17 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                 rows={4}
                 placeholder="Describe detalladamente el motivo del cierre (mínimo 50 caracteres)"
                 className="
-    w-full
-    bg-white text-black
-    border border-gray-300
-    rounded-md
-    p-2
-    text-xs
-    resize-none
-    focus:outline-none
-    focus:ring-2
-    focus:ring-blue-500
-  "
+      w-full
+      bg-white text-black
+      border border-gray-300
+      rounded-md
+      p-2
+      text-xs
+      resize-none
+      focus:outline-none
+      focus:ring-2
+      focus:ring-blue-500
+    "
               />
 
               <div className="text-[10px] text-gray-500 mt-1">
@@ -1185,12 +1160,12 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                 }}
                 disabled={detalleCierre.trim().length < 50}
                 className={`text-xs px-3 py-1 rounded text-white
-    ${
-      detalleCierre.trim().length < 50
-        ? "bg-gray-400 cursor-not-allowed"
-        : "bg-green-600 hover:bg-green-700"
-    }
-  `}
+      ${
+        detalleCierre.trim().length < 50
+          ? "bg-gray-400 cursor-not-allowed"
+          : "bg-green-600 hover:bg-green-700"
+      }
+    `}
               >
                 Cerrar caso
               </button>
@@ -1211,7 +1186,6 @@ Unidad: ${casoCriticoSeleccionado.unidad}
               {activos.length}
             </span>
           </div>
-
         </div>
 
         <div className="flex-1 overflow-y-auto pr-2">
@@ -1243,17 +1217,17 @@ Unidad: ${casoCriticoSeleccionado.unidad}
       </div>
       {/* IA CONVERSACIONAL */}
       {/*       <div className="mt-4 border rounded p-3 bg-gray-50">
-        <div className="text-xs font-bold mb-2">
-          🤖 Conversación con operador
-        </div>
-
-        {conversacionIA.map((m, i) => (
-          <div key={i} className="text-xs mb-1">
-            <strong>{m.from === "ia" ? "IA:" : "Operador:"}</strong> {m.text}
+          <div className="text-xs font-bold mb-2">
+            🤖 Conversación con operador
           </div>
-        ))}
-      </div>
- */}
+
+          {conversacionIA.map((m, i) => (
+            <div key={i} className="text-xs mb-1">
+              <strong>{m.from === "ia" ? "IA:" : "Operador:"}</strong> {m.text}
+            </div>
+          ))}
+        </div>
+  */}
       {/* CRÍTICOS */}
       <div className="bg-red-50 rounded-xl shadow p-4 border border-red-300 h-[calc(100vh-140px)] flex flex-col">
         <div className="flex justify-between mb-4 items-center">
@@ -1263,15 +1237,15 @@ Unidad: ${casoCriticoSeleccionado.unidad}
             </h2>
             <span
               className={`text-xs font-bold px-2 py-0.5 rounded-full text-white
-      ${criticos.length > 0 ? "bg-red-600 animate-pulse" : "bg-red-400"}
-    `}
+        ${criticos.length > 0 ? "bg-red-600 animate-pulse" : "bg-red-400"}
+      `}
             >
               {criticos.length}
             </span>
           </div>
 
           {/* FILTRO CRÍTICOS (SELECT) */}
-          {puedeVerFiltroCriticos && (
+          {true && (
             <div className="mb-3 mt-2 p-3 bg-red-100 border border-red-300 rounded-md">
               <label className="block text-xs font-semibold text-red-700 mb-1">
                 Filtrar casos críticos por tipo
