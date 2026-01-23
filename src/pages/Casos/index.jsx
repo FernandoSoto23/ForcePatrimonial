@@ -88,10 +88,10 @@ function casosReducer(state, action) {
       } else {
         const nuevoEvento = payload.base.eventos[0];
 
-        // 🛑 DEDUPLICACIÓN POR ID
-        const yaExiste = actual.eventos.some((e) => e.id === nuevoEvento.id);
-
-        if (yaExiste) return state;
+        // 🛑 DEDUPLICACIÓN
+        if (actual.eventos.some(e => e.id === nuevoEvento.id)) {
+          return state;
+        }
 
         actual.eventos.push(nuevoEvento);
 
@@ -100,38 +100,34 @@ function casosReducer(state, action) {
       }
 
       /* ===============================
-          🔥 REGLA FINAL (SIMPLE Y CORRECTA)
-        =============================== */
+         🔥 LÓGICA REAL DE CRÍTICOS
+      =============================== */
 
-      // 🚨 PÁNICO
-      actual.esPanico = esPanico(actual);
+      // ❌ IGNORAR TODO LO QUE ESTÉ EN S
+      const eventosNoS = actual.eventos.filter(
+        e => e.geocercaSLTA !== "S"
+      );
 
-      // 🧠 combinación UI
+
+
+      const totalNoS = eventosNoS.length;
+
+      // ✅ SOLO ESTO DEFINE CRÍTICO
+      actual.critico = totalNoS >= 2;
+
+      // UI
       actual.combinacion = Object.keys(actual.repeticiones)
         .sort((a, b) => actual.repeticiones[b] - actual.repeticiones[a])
         .join(" + ");
-      const totalAlertas = actual.eventos.length;
-
-      // 🏢 ¿Alguna alerta está dentro de geocerca S (Sucursal)?
-      // ❌ BLOQUEO: si alguna alerta está en S, NO es crítico
-      const tieneSucursal = actual.eventos.some((e) => e.geocercaSLTA === "S");
-
-      // ✅ CRÍTICO: 2+ alertas Y ninguna en S
-      const tiposCriticos = [
-        "PANICO",
-        "JAMMER",
-        "SIN_SENAL",
-        "DESVIO",
-        "DETENIDA",
-      ];
-
-      actual.critico =
-        !tieneSucursal &&
-        actual.eventos.some((e) => tiposCriticos.includes(e.tipoNorm)) &&
-        (actual.esPanico || totalAlertas >= 1);
 
       copia[casoId] = actual;
       return copia;
+    }
+
+    case "REMOVE": {
+      const out = { ...state };
+      delete out[action.casoId];
+      return out;
     }
 
     case "TOGGLE":
@@ -143,21 +139,11 @@ function casosReducer(state, action) {
         },
       };
 
-    case "REMOVE": {
-      const out = { ...state };
-      delete out[action.casoId];
-      return out;
-    }
-
-    case "CLEAR_CRITICOS":
-      return Object.fromEntries(
-        Object.entries(state).filter(([, v]) => !v.critico),
-      );
-
     default:
       return state;
   }
 }
+
 
 export default function Casos() {
   /* VARIABLES DE ESTADO */
@@ -352,20 +338,41 @@ export default function Casos() {
     })
     .filter(Boolean)
     .join("\n");
+
+  const TIPOS_CORRELACIONABLES = new Set([
+    "PANICO",
+    "DESVIO DE RUTA",
+    "UNIDAD DETENIDA",
+    "SIN SENAL",
+    "DETECCION DE JAMMER",
+  ]);
+
+  const VENTANA_CORRELACION = 10 * 60 * 1000; // 10 minutos
   const procesarAlerta = (data) => {
-    const mensaje = safeDecode(data.mensaje);
+    // ===============================
+    // 1️⃣ VALIDACIONES BÁSICAS
+    // ===============================
+    if (!data) return;
+
+    const mensaje = safeDecode(data.mensaje || "");
     const unidadRaw = (data.unidad || "").trim();
     const tipoRaw = (data.tipo || "").trim();
+
     if (!mensaje || !unidadRaw || !tipoRaw) return;
 
     const unidadKey = normalize(unidadRaw);
+    const tipoNorm = normalize(tipoRaw);
+
+    // 🔐 validar que la unidad sea del usuario
     if (!unidadesUsuarioRef.current.has(unidadKey)) return;
 
     const unitId = unidadesMapRef.current.get(unidadKey);
     if (!unitId) return;
 
-    const tsRx = Date.now();
-    let tsInc = tsRx;
+    // ===============================
+    // 2️⃣ TIMESTAMP DEL EVENTO
+    // ===============================
+    let tsInc = Date.now();
 
     const fh = extraerFechaHora(mensaje);
     if (fh) {
@@ -374,20 +381,44 @@ export default function Casos() {
       if (parsed) tsInc = parsed;
     }
 
-    const bloqueHora = obtenerBloqueHora(tsInc);
+    const tsRx = Date.now();
 
-    // 🔑 CLAVE: unidad normalizada
-    const casoId = `${unidadKey}_${bloqueHora}`;
+    // ===============================
+    // 3️⃣ GEOCAERCA
+    // ===============================
+    const geocerca = data.geocerca_slta ?? null;
+    const enSucursal = geocerca === "S";
 
-    const tipoNorm = normalize(tipoRaw);
+    // ===============================
+    // 4️⃣ DEFINIR SI CORRELACIONA
+    // ===============================
+    const esCorrelacionable =
+      TIPOS_CORRELACIONABLES.has(tipoNorm) && !enSucursal;
 
+    // ===============================
+    // 5️⃣ CASO ID (CLAVE)
+    // ===============================
+    let casoId;
+
+    if (esCorrelacionable) {
+      // 🔥 BLOQUE DE TIEMPO CONTROLADO
+      const bloque = Math.floor(tsInc / VENTANA_CORRELACION);
+      casoId = `${unidadKey}_${bloque}`;
+    } else {
+      // 🟢 alerta normal, nunca se agrupa
+      casoId = `${data.id}`;
+    }
+
+    // ===============================
+    // 6️⃣ DISPATCH AL REDUCER
+    // ===============================
     dispatchCasos({
       type: "ADD_ALERTA",
       casoId,
       payload: {
         base: {
           id: casoId,
-          unidad: unidadRaw, // bonito
+          unidad: unidadRaw,
           unitId,
           eventos: [
             {
@@ -401,7 +432,7 @@ export default function Casos() {
               lugar: extraerLugar(mensaje),
               velocidad: extraerVelocidad(mensaje),
               mapsUrl: extraerMapsUrl(mensaje),
-              geocercaSLTA: data.geocerca_slta ?? null,
+              geocercaSLTA: geocerca,
               geocercas_json: data.geocercas_json ?? null,
             },
           ],
@@ -413,6 +444,7 @@ export default function Casos() {
       },
     });
   };
+
 
   const resumenReps = (reps) => {
     const entries = Object.entries(reps || {});
@@ -572,7 +604,7 @@ export default function Casos() {
 
     try {
       const decoded = jwtDecode(token);
-
+      console.log("USUARIO:", decoded);
       // ejemplo: decoded.usuario o decoded.user
       console.log(decoded);
       setUsuario(decoded);
@@ -772,11 +804,10 @@ export default function Casos() {
                 <button
                   onClick={() => setFiltroTipoAlerta("TODOS")}
                   className={`px-3 py-1 rounded-full text-[11px] font-semibold border
-          ${
-            filtroTipoAlerta === "TODOS"
-              ? "bg-black text-white border-black"
-              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-          }`}
+          ${filtroTipoAlerta === "TODOS"
+                      ? "bg-black text-white border-black"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                    }`}
                 >
                   TODOS ({casoCriticoSeleccionado.eventos.length})
                 </button>
@@ -786,11 +817,10 @@ export default function Casos() {
                     key={tipo}
                     onClick={() => setFiltroTipoAlerta(tipo)}
                     className={`px-3 py-1 rounded-full text-[11px] font-semibold border
-            ${
-              filtroTipoAlerta === tipo
-                ? "bg-red-600 text-white border-red-600"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-            }`}
+            ${filtroTipoAlerta === tipo
+                        ? "bg-red-600 text-white border-red-600"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                      }`}
                   >
                     {tipo} ({conteoPorTipo[tipo]})
                   </button>
@@ -956,7 +986,18 @@ export default function Casos() {
 
                   if (!result.isConfirmed) return;
 
+                  // ======= PEGA ESTO AQUÍ =======
+                  const idUsuario = usuario?.id_usuario ?? usuario?.id ?? usuario?.sub;
+                  const nombreUsuario = usuario?.nombre ?? usuario?.name;
+
+                  if (!idUsuario || !nombreUsuario) {
+                    toast.error("Usuario inválido, no se puede cerrar el caso");
+                    return;
+                  }
+                  // ======= HASTA AQUÍ =======
+
                   try {
+                    console.log(API_URL)
                     const resp = await fetch(
                       `${API_URL}/alertas/cerrar-multiples`,
                       {
@@ -965,26 +1006,39 @@ export default function Casos() {
                           "Content-Type": "application/json",
                         },
                         body: JSON.stringify({
-                          alertas: casoCriticoSeleccionado.eventos.map(
-                            (e) => e.id,
-                          ),
-                          id_usuario: usuario.id,
-                          nombre_usuario: usuario.name,
+                          alertas: casoCriticoSeleccionado.eventos.map(e => e.id),
+                          id_usuario: idUsuario,
+                          nombre_usuario: nombreUsuario,
                           detalle_cierre: `
-  Motivo: ${motivoCierre}
-  ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
+Motivo: ${motivoCierre}
+${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
 
-  Evaluación operativa:
-  ${evaluacionTexto}
+Evaluación operativa:
+${evaluacionTexto}
 
-  Cierre realizado por: ${usuario.name}
-  Fecha cierre: ${new Date().toLocaleString()}
-  Unidad: ${casoCriticoSeleccionado.unidad}
-  `.trim(),
+Cierre realizado por: ${nombreUsuario}
+Fecha cierre: ${new Date().toLocaleString()}
+Unidad: ${casoCriticoSeleccionado.unidad}
+`.trim(),
                         }),
                       },
                     );
+                    console.log(JSON.stringify({
+                      alertas: casoCriticoSeleccionado.eventos.map(e => e.id),
+                      id_usuario: idUsuario,
+                      nombre_usuario: nombreUsuario,
+                      detalle_cierre: `
+Motivo: ${motivoCierre}
+${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
 
+Evaluación operativa:
+${evaluacionTexto}
+
+Cierre realizado por: ${nombreUsuario}
+Fecha cierre: ${new Date().toLocaleString()}
+Unidad: ${casoCriticoSeleccionado.unidad}
+`.trim(),
+                    }));
                     if (!resp.ok) {
                       const errorText = await resp.text();
                       throw new Error(errorText);
@@ -1003,12 +1057,11 @@ export default function Casos() {
                     observacionesCierre.trim().length < 10)
                 }
                 className={`text-xs px-4 py-1 rounded text-white transition
-      ${
-        !motivoCierre ||
-        (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
-          ? "bg-gray-400 cursor-not-allowed"
-          : "bg-red-600 hover:bg-red-700"
-      }
+      ${!motivoCierre ||
+                    (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-red-600 hover:bg-red-700"
+                  }
     `}
               >
                 Cerrar caso crítico
@@ -1160,11 +1213,10 @@ export default function Casos() {
                 }}
                 disabled={detalleCierre.trim().length < 50}
                 className={`text-xs px-3 py-1 rounded text-white
-      ${
-        detalleCierre.trim().length < 50
-          ? "bg-gray-400 cursor-not-allowed"
-          : "bg-green-600 hover:bg-green-700"
-      }
+      ${detalleCierre.trim().length < 50
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-green-600 hover:bg-green-700"
+                  }
     `}
               >
                 Cerrar caso
