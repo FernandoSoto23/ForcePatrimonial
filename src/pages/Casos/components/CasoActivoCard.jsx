@@ -1,158 +1,103 @@
 import React from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
+
 function CasoActivoCard({
-    caso,
-    isSelected,
-    onToggle,
-    onAnalizar,
-    onMapa,
-    onLlamarOperador,
-    resumenReps,
-    MensajeExpandable,
+  caso,
+  isSelected,
+  onToggle,
+  onAnalizar,
+  onMapa,
+  onLlamarOperador,
+  resumenReps,
+  MensajeExpandable,
 }) {
-    const ultimoEvento = caso.eventos[0];
-    const slta = ultimoEvento?.geocercaSLTA;
-    const panico = caso.esPanico;
-    const zonas = caso.zonas;
+  const ultimoEvento = caso.eventos[0];
+  const panico = caso.esPanico;
 
-    const SLTA_LABEL = {
-        S: "Sucursal",
-        L: "Local",
-        T: "Taller",
-        A: "Agencia",
-    };
+  return (
+    <div
+      className={`
+        mb-1 rounded-md border transition shadow-sm bg-white
+        ${panico ? "border-red-400" : "border-gray-300"}
+        ${isSelected ? "ring-1 ring-gray-400" : ""}
+      `}
+    >
+      {/* FILA PRINCIPAL */}
+      <div className="grid grid-cols-[1.6fr_1.4fr_auto_auto] items-center gap-4 px-3 py-2">
+        {/* UNIDAD + TIPO */}
+        <div className="min-w-0">
+          <div className="font-extrabold text-[13px] text-gray-900 truncate">
+            {caso.unidad}
+          </div>
 
-    return (
-        <div
-            className={`mb-3 p-4 rounded-lg border transition-all
-${isSelected
-                    ? "bg-gray-200 border-gray-500 border-l-8 border-l-gray-600 shadow-inner"
-                    : panico
-                        ? "bg-red-50 border-red-400 border-l-8 border-l-red-600"
-                        : slta
-                            ? "bg-green-50 border-green-400 border-l-8 border-l-green-700"
-                            : "bg-white border-gray-300"
-                }`}
-        >
-            {/* BADGE SLTA */}
-            {slta && (
-                <div className="mb-2 inline-flex items-center gap-2 px-2 py-1 rounded-full bg-green-700 text-white text-[11px] font-bold">
-                    {SLTA_LABEL[slta]}
-                </div>
-            )}
-
-            {/* ZONAS */}
-            {zonas?.length > 0 && (
-                <div className="mb-2 flex flex-wrap gap-1">
-                    {zonas.map((z) => (
-                        <span
-                            key={z.id}
-                            className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-semibold"
-                        >
-                            📍 {z.name}
-                        </span>
-                    ))}
-                </div>
-            )}
-
-            {/* PÁNICO */}
-            {panico && (
-                <div className="mb-2 inline-flex items-center gap-2 px-2 py-1 rounded-full bg-red-600 text-white text-[11px] font-bold">
-                    🚨 ALERTA DE PÁNICO
-                </div>
-            )}
-
-            {/* HEADER */}
-            <div
-                onClick={() => onToggle(caso)}
-                className="cursor-pointer flex justify-between items-center"
-            >
-                <div className="min-w-0">
-                    <div className="text-[11px] text-gray-500">
-                        Estado del caso: <strong>{caso.estado}</strong>
-                    </div>
-
-                    <div className="font-bold truncate text-green-800">
-                        {caso.unidad}
-                    </div>
-
-                    <div className="text-sm text-gray-600 truncate">
-                        {resumenReps(caso.repeticiones)}
-                    </div>
-                </div>
-
-                {caso.expanded ? <ChevronUp /> : <ChevronDown />}
-            </div>
-
-            {/* DETALLE */}
-            {caso.expanded && (
-                <div className="mt-3 border-t pt-3 text-xs space-y-3">
-                    {caso.eventos.map((e, i) => (
-                        <div key={`${e.id ?? "noid"}-${i}`} className="pt-2">
-                            <strong>{e.tipoNorm}</strong>
-                            <div className="text-[11px] text-gray-500 mt-1">
-                                ID alerta: {e.id ?? "—"}
-                            </div>
-
-                            <div className="space-y-1 text-[11px] text-gray-700 mt-2">
-                                {e.fechaHoraFmt && (
-                                    <>
-                                        <div><strong>Fecha:</strong> {e.fechaHoraFmt.fecha}</div>
-                                        <div><strong>Hora:</strong> {e.fechaHoraFmt.hora}</div>
-                                    </>
-                                )}
-
-                                {e.lugar && (
-                                    <div><strong>Lugar:</strong> {e.lugar}</div>
-                                )}
-
-                                {e.velocidad && (
-                                    <div><strong>Velocidad:</strong> {e.velocidad}</div>
-                                )}
-                            </div>
-
-                            <MensajeExpandable mensaje={e.mensaje} />
-
-                            {/* BOTONES */}
-                            <div className="flex w-full gap-3 items-center justify-between">
-                                {e.mapsUrl && (
-                                    <a
-                                        href={e.mapsUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="mt-2 text-[11px] font-bold bg-black px-3 py-3 h-12 text-white rounded"
-                                    >
-                                        Google Maps
-                                    </a>
-                                )}
-
-                                <button
-                                    onClick={() => onAnalizar(caso)}
-                                    className="mt-2 bg-green-700 hover:bg-green-800 text-white px-3 py-1 rounded h-12 text-sm font-bold"
-                                >
-                                    Analizar caso
-                                </button>
-
-                                <button
-                                    onClick={() => onLlamarOperador(e)}
-                                    className="mt-2 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded h-12 text-sm font-bold"
-                                >
-                                    📞 Llamar operador
-                                </button>
-
-                                <button
-                                    onClick={() => onMapa(caso)}
-                                    className="mt-2 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded h-12"
-                                >
-                                    🗺 Ver ubicación en tiempo real
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+          <div className="text-[11px] text-gray-600 truncate">
+            {resumenReps(caso.repeticiones)}
+          </div>
         </div>
-    );
+
+        {/* FECHA / HORA / ID */}
+        <div className="text-[11px] text-gray-800 leading-tight">
+          {ultimoEvento?.fechaHoraFmt && (
+            <div>
+              {ultimoEvento.fechaHoraFmt.fecha} ·{" "}
+              {ultimoEvento.fechaHoraFmt.hora}
+            </div>
+          )}
+          {ultimoEvento?.id && (
+            <div className="text-gray-500">ID: {ultimoEvento.id}</div>
+          )}
+        </div>
+
+        {/* ACCIONES */}
+        <div className="flex gap-1">
+          <button
+            title="Analizar caso"
+            onClick={() => onAnalizar(caso)}
+            className="px-3 py-1 text-[11px] rounded bg-black text-white hover:bg-gray-900"
+          >
+            Analizar
+          </button>
+
+          <button
+            title="Llamar operador"
+            onClick={() => onLlamarOperador(ultimoEvento)}
+            className="px-2 py-1 rounded bg-gray-100 text-gray-800 hover:bg-gray-200"
+          >
+            📞
+          </button>
+
+          <button
+            title="Ver ubicación en tiempo real"
+            onClick={() => onMapa(caso)}
+            className="px-2 py-1 rounded bg-gray-100 text-gray-800 hover:bg-gray-200"
+          >
+            🗺
+          </button>
+        </div>
+
+        {/* EXPAND */}
+        <div
+          title={caso.expanded ? "Ocultar detalle del caso" : "Ver detalle del caso"}
+          onClick={() => onToggle(caso)}
+          className="cursor-pointer text-gray-400 hover:text-gray-600"
+        >
+          {caso.expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </div>
+      </div>
+
+      {/* EXPANDIDO */}
+      {caso.expanded && (
+        <div className="px-4 py-2 border-t bg-gray-50 text-[11px] space-y-2">
+          {caso.eventos.map((e, i) => (
+            <div key={`${e.id}-${i}`}>
+              <strong className="text-gray-900">{e.tipoNorm}</strong>
+              <MensajeExpandable mensaje={e.mensaje} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default React.memo(CasoActivoCard);
