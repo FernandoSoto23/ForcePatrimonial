@@ -1,91 +1,253 @@
-export const PREGUNTAS_EVALUACION = [
-  // 🧠 BLOQUE 1 — Contacto inicial
-  {
-    key: "contactoUnidad",
-    label: "¿Se logró establecer comunicación con la unidad?",
-  },
-  {
-    key: "sinRiesgoConfirmado",
-    label: "¿La conversación indicó que la tripulación no se encontraba en riesgo?",
-    dependsOn: "contactoUnidad",
-    showIf: true,
-  },
+/* ============================================================
+   PREGUNTAS OPERATIVAS CMS – PROTOCOLO II/PQTGSP/24
+   MODELO FINAL DEFINITIVO
+   - Texto orientado a ACCIONES (no preguntas)
+   - Cada acción define su tipo de resultado
+   - Compatible con bitácora, hora y auditoría
+============================================================ */
 
-  // 📹 BLOQUE 2 — CCTV
-  {
-    key: "camarasRevisadas",
-    label: "¿Se revisaron las últimas imágenes de cabina (CCTV)?",
-  },
-  {
-    key: "anomaliaCamaras",
-    label: "¿Las imágenes mostraron anomalías o presencia de personas ajenas?",
-    dependsOn: "camarasRevisadas",
-    showIf: true,
-  },
+export const PREGUNTAS_POR_PROTOCOLO = {
+  /* ======================================================
+     🔹 GENERALES – SIEMPRE APLICAN
+     (OBSERVAR / VALIDAR / CONTACTAR)
+  ====================================================== */
+  GENERAL: [
+    {
+      key: "revisionCCTV",
+      label: "Revisión de imágenes de cabina (CCTV)",
+      tipoRespuesta: "boolean", // Sí / No
+    },
+    {
+      key: "riesgoVisual",
+      label: "Evaluación de indicios de riesgo en cabina",
+      tipoRespuesta: "riesgo", // Sin riesgo / Riesgo
+      dependsOn: "revisionCCTV",
+      showIf: true,
+    },
+    {
+      key: "contactoOperador",
+      label: "Contacto telefónico con el operador",
+      tipoRespuesta: "boolean",
+    },
+    {
+      key: "operadorSinRiesgo",
+      label: "Confirmación de tripulación sin riesgo",
+      tipoRespuesta: "riesgo",
+      dependsOn: "contactoOperador",
+      showIf: true,
+    },
+  ],
 
-  // 📡 BLOQUE 3 — Señal y tecnología
-  {
-    key: "gpsSinSenal",
-    label: "¿La unidad presentó pérdida de señal GPS?",
-  },
-  {
-    key: "switchPanico",
-    label: "¿Se recibió activación de switch de pánico?",
-  },
+  /* ======================================================
+     🔹 SIN SEÑAL / JAMMER
+     (RECUPERAR / LOCALIZAR / ESCALAR)
+  ====================================================== */
+  SIN_SENAL: [
+    {
+      key: "accionesRecuperacion",
+      label: "Ejecución de acciones para recuperar señal GPS",
+      tipoRespuesta: "boolean",
+    },
+    {
+      key: "contactoDuranteSinSenal",
+      label: "Intento de contacto con operador durante pérdida de señal",
+      tipoRespuesta: "boolean",
+    },
+    {
+      key: "ubicacionConfirmada",
+      label: "Confirmación de ubicación y estatus de la unidad",
+      tipoRespuesta: "boolean",
+      dependsOn: "contactoDuranteSinSenal",
+      showIf: true,
+    },
+    {
+      key: "seguimientoSinSenal",
+      label: "Seguimiento continuo hasta restablecimiento o escalamiento",
+      tipoRespuesta: "boolean",
+    },
+    {
+      key: "operativoAutoridades",
+      label: "Solicitud de operativo con autoridades",
+      tipoRespuesta: "boolean",
+    },
+  ],
 
-  // 🚨 BLOQUE 4 — Identificación de riesgo
-  {
-    key: "peligroDetectado",
-    label: "¿Se detectó una situación de riesgo?",
-  },
-  {
-    key: "personasSospechosas",
-    label: "¿Se detectó presencia de personas o vehículos sospechosos?",
-    dependsOn: "peligroDetectado",
-    showIf: true,
-  },
-  {
-    key: "amenazasDetectadas",
-    label: "¿Se identificaron amenazas o indicios de agresión a la tripulación?",
-    dependsOn: "peligroDetectado",
-    showIf: true,
-  },
+  /* ======================================================
+     🔹 UNIDAD DETENIDA
+     (VALIDAR MOTIVO / TIEMPO / AUTORIZACIÓN)
+  ====================================================== */
+  UNIDAD_DETENIDA: [
+    {
+      key: "contactoDetencion",
+      label: "Contacto con operador por detención de la unidad",
+      tipoRespuesta: "boolean",
+    },
+    {
+      key: "motivoParada",
+      label: "Validación del motivo de la parada",
+      tipoRespuesta: "boolean",
+      dependsOn: "contactoDetencion",
+      showIf: true,
+    },
+    {
+      key: "motivoValido",
+      label: "Evaluación del motivo conforme a protocolo",
+      tipoRespuesta: "riesgo",
+      dependsOn: "motivoParada",
+      showIf: true,
+    },
+    {
+      key: "tiempoReanudacion",
+      label: "Confirmación de tiempo estimado para reanudar marcha",
+      tipoRespuesta: "boolean",
+      dependsOn: "motivoParada",
+      showIf: true,
+    },
+    {
+      key: "logisticaInformada",
+      label: "Notificación a Torre de Control o Logística",
+      tipoRespuesta: "boolean",
+    },
+  ],
 
-  // 🛑 BLOQUE 5 — Detención
-  {
-    key: "unidadDetenida",
-    label: "¿La unidad se encontraba detenida?",
-  },
-  {
-    key: "detencionAutorizada",
-    label: "¿La detención estaba autorizada por logística?",
-    dependsOn: "unidadDetenida",
-    showIf: true,
-  },
+  /* ======================================================
+     🔹 DESVÍO DE RUTA
+     (CONFIRMAR / AUTORIZAR / SEGUIR)
+  ====================================================== */
+  DESVIO_RUTA: [
+    {
+      key: "contactoDesvio",
+      label: "Contacto con operador por desvío de ruta",
+      tipoRespuesta: "boolean",
+    },
+    {
+      key: "explicacionDesvio",
+      label: "Recepción de explicación del desvío",
+      tipoRespuesta: "boolean",
+      dependsOn: "contactoDesvio",
+      showIf: true,
+    },
+    {
+      key: "autorizacionConfirmada",
+      label: "Confirmación de autorización con Logística",
+      tipoRespuesta: "boolean",
+      dependsOn: "explicacionDesvio",
+      showIf: true,
+    },
+    {
+      key: "seguimientoDesvio",
+      label: "Seguimiento hasta reincorporación a ruta asignada",
+      tipoRespuesta: "boolean",
+    },
+  ],
 
-  // 🧭 BLOQUE 6 — Ruta y movimientos
-  {
-    key: "rutaCorrecta",
-    label: "¿La unidad circulaba conforme a la ruta programada?",
-  },
-  {
-    key: "movimientoSinAsignar",
-    label: "¿Se detectó movimiento de la unidad sin asignación?",
-  },
+  /* ======================================================
+     🔹 SWITCH DE PÁNICO
+     (ESCUCHAR / DETECTAR / ACTUAR)
+  ====================================================== */
+  SWITCH_PANICO: [
+    {
+      key: "escuchaEspia",
+      label: "Escucha en modo espía (mínimo 60 segundos)",
+      tipoRespuesta: "boolean",
+    },
+    {
+      key: "indiciosAmenaza",
+      label: "Identificación de amenazas o coacción",
+      tipoRespuesta: "riesgo",
+      dependsOn: "escuchaEspia",
+      showIf: true,
+    },
+    {
+      key: "llamadaPosterior",
+      label: "Llamada posterior al operador conforme a protocolo",
+      tipoRespuesta: "boolean",
+    },
+    {
+      key: "protocoloActivado",
+      label: "Activación del protocolo correspondiente",
+      tipoRespuesta: "boolean",
+    },
+  ],
 
-  // 📣 BLOQUE 7 — Escalamiento y cierre
-  {
-    key: "requiereEscalamiento",
-    label: "¿Fue necesario escalar el evento a autoridades u otro protocolo?",
-  },
-  {
-    key: "areaNotificada",
-    label: "¿Se notificó al área correspondiente (Torre de Control / Logística)?",
-    dependsOn: "requiereEscalamiento",
-    showIf: true,
-  },
-  {
-    key: "eventoControlado",
-    label: "¿El operador confirmó que la situación fue controlada?",
-  },
-];
+  /* ======================================================
+     🔹 MOVIMIENTO SIN ASIGNACIÓN
+     (VALIDAR / CONFIRMAR / DOCUMENTAR)
+  ====================================================== */
+  MOVIMIENTO_SIN_ASIGNAR: [
+    {
+      key: "validacionMovimiento",
+      label: "Validación del movimiento con Torre de Control o Logística",
+      tipoRespuesta: "boolean",
+    },
+    {
+      key: "movimientoJustificado",
+      label: "Confirmación del movimiento como justificado",
+      tipoRespuesta: "boolean",
+    },
+    {
+      key: "actualizacionBitacora",
+      label: "Actualización de bitácora o formato de monitoreo",
+      tipoRespuesta: "boolean",
+    },
+  ],
+
+  /* ======================================================
+     🔹 ESCALAMIENTO Y CIERRE
+     (NOTIFICAR / CONTROLAR)
+  ====================================================== */
+  ESCALAMIENTO: [
+    {
+      key: "escalamientoAutoridades",
+      label: "Escalamiento del evento a autoridades",
+      tipoRespuesta: "boolean",
+    },
+    {
+      key: "areasNotificadas",
+      label: "Notificación a áreas correspondientes",
+      tipoRespuesta: "boolean",
+      dependsOn: "escalamientoAutoridades",
+      showIf: true,
+    },
+    {
+      key: "eventoControlado",
+      label: "Confirmación de evento controlado",
+      tipoRespuesta: "boolean",
+    },
+  ],
+};
+
+/* ============================================================
+   GENERADOR DE PREGUNTAS SEGÚN CONTEXTO
+   (EL SISTEMA DECIDE, NO EL MONITORISTA)
+============================================================ */
+
+export function generarPreguntas(contexto = {}) {
+  let preguntas = [...PREGUNTAS_POR_PROTOCOLO.GENERAL];
+
+  if (contexto.sinSenal) {
+    preguntas.push(...PREGUNTAS_POR_PROTOCOLO.SIN_SENAL);
+  }
+
+  if (contexto.unidadDetenida) {
+    preguntas.push(...PREGUNTAS_POR_PROTOCOLO.UNIDAD_DETENIDA);
+  }
+
+  if (contexto.desvioRuta) {
+    preguntas.push(...PREGUNTAS_POR_PROTOCOLO.DESVIO_RUTA);
+  }
+
+  if (contexto.switchPanico) {
+    preguntas.push(...PREGUNTAS_POR_PROTOCOLO.SWITCH_PANICO);
+  }
+
+  if (contexto.movimientoSinAsignar) {
+    preguntas.push(...PREGUNTAS_POR_PROTOCOLO.MOVIMIENTO_SIN_ASIGNAR);
+  }
+
+  if (contexto.requiereEscalamiento) {
+    preguntas.push(...PREGUNTAS_POR_PROTOCOLO.ESCALAMIENTO);
+  }
+
+  return preguntas;
+}

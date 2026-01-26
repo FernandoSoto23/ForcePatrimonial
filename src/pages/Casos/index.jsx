@@ -11,6 +11,7 @@ import { io } from "socket.io-client";
 import { ShieldAlert, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "react-toastify";
 import { useUnits } from "../../context/UnitsContext";
+import { generarPreguntas } from "./components/EvaluacionOperativa/preguntasEvaluacion";
 import Swal from "sweetalert2";
 import ProtocolLauncher from "./components/ProtocoloLauncher";
 import MapaUnidadLive from "./components/MapaUnidadLive";
@@ -24,7 +25,6 @@ import UnidadDetenida from "./components/UnidadDetenida";
 import UnidadSinSenal from "./components/UnidadSinSenal";
 
 import EvaluacionOperativa from "./components/EvaluacionOperativa/EvaluacionOperativa";
-import { PREGUNTAS_EVALUACION } from "./components/EvaluacionOperativa/preguntasEvaluacion";
 import { detectarGeocercasParaAlerta } from "./utils/geocercasDetector";
 import { tsCaso, esPanico } from "./utils/casos";
 import { obtenerUnitIdDesdeNombre } from "./utils/unidades";
@@ -180,9 +180,7 @@ export default function Casos() {
   const [filtroTipoAlerta, setFiltroTipoAlerta] = useState("TODOS");
   const [casos, dispatchCasos] = useReducer(casosReducer, {});
   const sirena = useRef(null);
-  const [evaluacionCritica, setEvaluacionCritica] = useState(
-    Object.fromEntries(PREGUNTAS_EVALUACION.map((p) => [p.key, null])),
-  );
+  const [evaluacionCritica, setEvaluacionCritica] = useState({});
   const [showMsg, setShowMsg] = useState(false);
   const [casoSeleccionado, setCasoSeleccionado] = useState(null);
   const [casoCriticoSeleccionado, setCasoCriticoSeleccionado] = useState(null);
@@ -223,13 +221,6 @@ export default function Casos() {
       .sort((a, b) => tsCaso(b) - tsCaso(a));
   }, [casos]);
 
-  const preguntasVisibles = useMemo(() => {
-    return PREGUNTAS_EVALUACION.filter((p) => {
-      if (!p.dependsOn) return true;
-
-      return evaluacionCritica[p.dependsOn] === p.showIf;
-    });
-  }, [evaluacionCritica]);
   const activos = useMemo(() => lista.filter((c) => !c.critico), [lista]);
 
   const criticos = useMemo(() => lista.filter((c) => c.critico), [lista]);
@@ -249,6 +240,12 @@ export default function Casos() {
       return acc;
     }, {});
   }, [casoCriticoSeleccionado]);
+
+  const contextoEvento = useMemo(() => ({
+    sinSenal: (conteoPorTipo["SIN SENAL"] || 0) > 0,
+    switchPanico: (conteoPorTipo["PANICO"] || 0) > 0,
+    desvioRuta: (conteoPorTipo["DESVIO DE RUTA"] || 0) > 0,
+  }), [conteoPorTipo]);
 
   const tiposDisponibles = Object.keys(conteoPorTipo);
 
@@ -357,11 +354,15 @@ export default function Casos() {
 
     return pertenece;
   }
-  const evaluacionTexto = Object.entries(evaluacionCritica)
-    .map(([key, value]) => {
-      const pregunta = PREGUNTAS_EVALUACION.find((p) => p.key === key);
-      if (!pregunta || value === null) return null;
-      return `- ${pregunta.label}: ${value ? "Sí" : "No"}`;
+  const preguntasActuales = useMemo(
+    () => generarPreguntas(contextoEvento),
+    [contextoEvento]
+  );
+  const evaluacionTexto = preguntasActuales
+    .map((p) => {
+      const r = evaluacionCritica[p.key];
+      if (!r) return null;
+      return `- ${p.label}: ${r.respuesta ? "Sí" : "No"}`;
     })
     .filter(Boolean)
     .join("\n");
@@ -759,15 +760,16 @@ export default function Casos() {
     `}
     >
       {casoCriticoSeleccionado && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 mt-5 pointer-events-auto">
-          <div className="bg-white rounded-xl w-[1000px] max-w-full p-6 shadow mt-10 max-h-[80vh] overflow-y-auto">
-            {/* HEADER */}
-            <div className="flex justify-between items-start mb-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 pointer-events-auto">
+          <div className="bg-white rounded-lg w-[1000px] max-w-full max-h-[85vh] flex flex-col shadow mt-10">
+
+            {/* ================= HEADER (FIJO) ================= */}
+            <div className="px-6 py-4 border-b flex justify-between items-start">
               <div>
-                <h2 className="text-lg font-bold text-red-700">
-                  🚨 Protocolo de Emergencia
+                <h2 className="text-sm font-semibold text-gray-900">
+                  Caso crítico
                 </h2>
-                <p className="text-sm text-gray-600">
+                <p className="text-xs text-gray-500">
                   Unidad {casoCriticoSeleccionado.unidad}
                 </p>
               </div>
@@ -780,128 +782,121 @@ export default function Casos() {
               </button>
             </div>
 
-            {/* INFO GENERAL */}
-            <div className="text-xs text-gray-700 space-y-1 mb-4">
-              <div>
-                <strong>Tipos involucrados:</strong>{" "}
-                {casoCriticoSeleccionado.combinacion}
-              </div>
-              <div>
-                <strong>Total de alertas:</strong>{" "}
-                {casoCriticoSeleccionado.eventos.length}
-              </div>
-            </div>
-            {/* FILTRO + CONTEO */}
-            <div className="mb-4 space-y-2">
-              <div className="text-xs font-semibold text-gray-700">
-                Filtrar por tipo de alerta
+            {/* ================= BODY (SCROLL ÚNICO) ================= */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+
+              {/* INFO GENERAL */}
+              <div className="text-xs text-gray-700 space-y-1">
+                <div>
+                  <strong>Tipos involucrados:</strong>{" "}
+                  {casoCriticoSeleccionado.combinacion}
+                </div>
+                <div>
+                  <strong>Total de alertas:</strong>{" "}
+                  {casoCriticoSeleccionado.eventos.length}
+                </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => setFiltroTipoAlerta("TODOS")}
-                  className={`px-3 py-1 rounded-full text-[11px] font-semibold border
-          ${filtroTipoAlerta === "TODOS"
-                      ? "bg-black text-white border-black"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                    }`}
-                >
-                  TODOS ({casoCriticoSeleccionado.eventos.length})
-                </button>
+              {/* FILTRO */}
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-gray-700">
+                  Filtrar por tipo de alerta
+                </div>
 
-                {tiposDisponibles.map((tipo) => (
+                <div className="flex flex-wrap gap-2">
                   <button
-                    key={tipo}
-                    onClick={() => setFiltroTipoAlerta(tipo)}
+                    onClick={() => setFiltroTipoAlerta("TODOS")}
                     className={`px-3 py-1 rounded-full text-[11px] font-semibold border
-            ${filtroTipoAlerta === tipo
-                        ? "bg-red-600 text-white border-red-600"
+                ${filtroTipoAlerta === "TODOS"
+                        ? "bg-black text-white border-black"
                         : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
                       }`}
                   >
-                    {tipo} ({conteoPorTipo[tipo]})
+                    TODOS ({casoCriticoSeleccionado.eventos.length})
                   </button>
+
+                  {tiposDisponibles.map((tipo) => (
+                    <button
+                      key={tipo}
+                      onClick={() => setFiltroTipoAlerta(tipo)}
+                      className={`px-3 py-1 rounded-full text-[11px] font-semibold border
+                  ${filtroTipoAlerta === tipo
+                          ? "bg-red-600 text-white border-red-600"
+                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                        }`}
+                    >
+                      {tipo} ({conteoPorTipo[tipo]})
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* HISTORIAL */}
+              <div className="border rounded-md p-3 max-h-72 overflow-auto text-xs space-y-3">
+                {eventosFiltrados.map((e, i) => (
+                  <div key={i} className="border-b last:border-b-0 py-2">
+                    {/* LINEA 1 */}
+                    <div className="flex items-center justify-between gap-2 text-[11px]">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-semibold text-red-600 uppercase shrink-0">
+                          {normalize(e.tipo)}
+                        </span>
+
+                        {formatearFechaHora(e.mensaje) && (
+                          <span className="text-gray-500 shrink-0">
+                            {formatearFechaHora(e.mensaje).fecha} ·{" "}
+                            {formatearFechaHora(e.mensaje).hora}
+                          </span>
+                        )}
+
+                        {extraerVelocidad(e.mensaje) && (
+                          <span className="text-gray-500 shrink-0">
+                            {extraerVelocidad(e.mensaje)}
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="text-[10px] text-gray-400 shrink-0">
+                        #{e.id}
+                      </span>
+                    </div>
+
+                    {/* LINEA 2 */}
+                    {extraerLugar(e.mensaje) && (
+                      <div className="text-[11px] text-gray-600 truncate">
+                        {extraerLugar(e.mensaje)}
+                      </div>
+                    )}
+
+                    {/* EXPANDIBLE */}
+                    <MensajeExpandable mensaje={e.mensaje} />
+
+                    {/* MAPA INLINE */}
+                    {extraerMapsUrl(e.mensaje) && (
+                      <a
+                        href={extraerMapsUrl(e.mensaje)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-blue-600 hover:underline"
+                      >
+                        Ver ubicación
+                      </a>
+                    )}
+                  </div>
+
                 ))}
               </div>
-            </div>
 
-            {/* HISTORIAL DETALLADO */}
-            <div className="border rounded-md p-3 max-h-72 overflow-auto text-xs space-y-3">
-              {eventosFiltrados.map((e, i) => (
-                <div key={i} className="border-b last:border-b-0 pb-3">
-                  {/* ENCABEZADO */}
-                  <div className="flex justify-between items-center mb-1">
-                    <strong className="text-red-700">
-                      {normalize(e.tipo)}
-                    </strong>
-                    <span className="text-[11px] text-gray-500">
-                      ID #{e.id}
-                    </span>
-                  </div>
+              {/* EVALUACIÓN OPERATIVA */}
+              <EvaluacionOperativa
+                value={evaluacionCritica}
+                onChange={setEvaluacionCritica}
+                contextoEvento={contextoEvento}
+              />
 
-                  {/* DETALLES */}
-                  <div className="space-y-1 text-[11px] text-gray-700 ml-1">
-                    {formatearFechaHora(e.mensaje) && (
-                      <>
-                        <div>
-                          <strong>Fecha:</strong>{" "}
-                          {formatearFechaHora(e.mensaje).fecha}
-                        </div>
-                        <div>
-                          <strong>Hora:</strong>{" "}
-                          {formatearFechaHora(e.mensaje).hora}
-                        </div>
-                      </>
-                    )}
 
-                    {extraerLugar(e.mensaje) && (
-                      <div>
-                        <strong>Lugar:</strong> {extraerLugar(e.mensaje)}
-                      </div>
-                    )}
-
-                    {extraerVelocidad(e.mensaje) && (
-                      <div>
-                        <strong>Velocidad:</strong>{" "}
-                        {extraerVelocidad(e.mensaje)}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* MENSAJE COMPLETO */}
-                  <MensajeExpandable mensaje={e.mensaje} />
-
-                  {/* MAPA */}
-                  {extraerMapsUrl(e.mensaje) && (
-                    <a
-                      href={extraerMapsUrl(e.mensaje)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-block mt-1 text-[11px] text-blue-600 underline"
-                    >
-                      Ver ubicación en Google Maps
-                    </a>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* ACCIONES */}
-            {/* ACCIONES DEL PROTOCOLO */}
-            {/* 🧠 EVALUACIÓN OPERATIVA */}
-            <EvaluacionOperativa
-              value={evaluacionCritica}
-              onChange={setEvaluacionCritica}
-            />
-
-            {/* 📝 NOTA DE CIERRE CASO CRÍTICO */}
-            <div className="mt-4">
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Descripción de cierre del caso crítico{" "}
-                <span className="text-red-500">*</span>
-              </label>
-
-              <div className="mt-4">
+              {/* CIERRE */}
+              <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
                   Motivo de cierre <span className="text-red-500">*</span>
                 </label>
@@ -919,24 +914,20 @@ export default function Casos() {
                   ))}
                 </select>
 
-                {/* 👇 SOLO SI ES OTRO */}
                 {motivoCierre === "OTRO" && (
                   <textarea
                     value={observacionesCierre}
                     onChange={(e) => setObservacionesCierre(e.target.value)}
                     rows={3}
-                    placeholder="Describe brevemente el motivo"
                     className="mt-2 w-full border border-gray-300 rounded-md p-2 text-xs"
+                    placeholder="Describe brevemente el motivo"
                   />
                 )}
               </div>
-
-              <div className="text-[10px] text-gray-500 mt-1">
-                {detalleCierreFinal.length} caracteres
-              </div>
             </div>
 
-            <div className="mt-6 flex justify-end gap-2">
+            {/* ================= FOOTER (FIJO) ================= */}
+            <div className="border-t px-6 py-3 flex justify-end gap-2 bg-gray-50">
               <button
                 onClick={() => {
                   resetearProtocolos();
@@ -944,10 +935,11 @@ export default function Casos() {
                   setObservacionesCierre("");
                   setCasoCriticoSeleccionado(null);
                 }}
-                className="text-xs bg-gray-300 px-4 py-1 rounded"
+                className="text-xs bg-gray-200 px-4 py-1 rounded"
               >
                 Cancelar
               </button>
+
               <button
                 onClick={async () => {
                   // 🚫 1) VALIDAR MOTIVO
@@ -956,23 +948,23 @@ export default function Casos() {
                     return;
                   }
 
-                  // 🚫 2) VALIDAR OBSERVACIONES SI ES OTRO
-                  if (
-                    evaluacionCritica.contactoUnidad === null ||
-                    evaluacionCritica.camarasRevisadas === null
-                  ) {
-                    toast.error(
-                      "Debes completar la evaluación operativa del evento",
-                    );
+                  // 🚫 2) VALIDAR EVALUACIÓN
+                  const faltantes = preguntasActuales.filter(
+                    (p) => !evaluacionCritica[p.key]
+                  );
+
+                  if (faltantes.length > 0) {
+                    toast.error("Debes completar toda la evaluación operativa");
                     return;
                   }
+
 
                   const result = await Swal.fire({
                     title: "Cerrar caso crítico",
                     html: `
-          <p>Estás a punto de cerrar un <b>caso crítico</b>.</p>
-          <p>Esta acción cerrará <b>todas las alertas asociadas</b>.</p>
-        `,
+        <p>Estás a punto de cerrar un <b>caso crítico</b>.</p>
+        <p>Esta acción cerrará <b>todas las alertas asociadas</b>.</p>
+      `,
                     icon: "warning",
                     showCancelButton: true,
                     confirmButtonText: "Sí, cerrar caso",
@@ -983,25 +975,22 @@ export default function Casos() {
 
                   if (!result.isConfirmed) return;
 
-                  // ======= PEGA ESTO AQUÍ =======
-                  const idUsuario = usuario?.id_usuario ?? usuario?.id ?? usuario?.sub;
-                  const nombreUsuario = usuario?.nombre ?? usuario?.name;
+                  const idUsuario =
+                    usuario?.id_usuario ?? usuario?.id ?? usuario?.sub;
+                  const nombreUsuario =
+                    usuario?.nombre ?? usuario?.name;
 
                   if (!idUsuario || !nombreUsuario) {
                     toast.error("Usuario inválido, no se puede cerrar el caso");
                     return;
                   }
-                  // ======= HASTA AQUÍ =======
 
                   try {
-                    console.log(API_URL)
                     const resp = await fetch(
                       `${API_URL}/alertas/cerrar-multiples`,
                       {
                         method: "POST",
-                        headers: {
-                          "Content-Type": "application/json",
-                        },
+                        headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                           alertas: casoCriticoSeleccionado.eventos.map(e => e.id),
                           id_usuario: idUsuario,
@@ -1018,24 +1007,9 @@ Fecha cierre: ${new Date().toLocaleString()}
 Unidad: ${casoCriticoSeleccionado.unidad}
 `.trim(),
                         }),
-                      },
+                      }
                     );
-                    console.log(JSON.stringify({
-                      alertas: casoCriticoSeleccionado.eventos.map(e => e.id),
-                      id_usuario: idUsuario,
-                      nombre_usuario: nombreUsuario,
-                      detalle_cierre: `
-Motivo: ${motivoCierre}
-${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
 
-Evaluación operativa:
-${evaluacionTexto}
-
-Cierre realizado por: ${nombreUsuario}
-Fecha cierre: ${new Date().toLocaleString()}
-Unidad: ${casoCriticoSeleccionado.unidad}
-`.trim(),
-                    }));
                     if (!resp.ok) {
                       const errorText = await resp.text();
                       throw new Error(errorText);
@@ -1053,20 +1027,22 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                   (motivoCierre === "OTRO" &&
                     observacionesCierre.trim().length < 10)
                 }
-                className={`text-xs px-4 py-1 rounded text-white transition
-      ${!motivoCierre ||
-                    (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
+                className={`text-xs px-4 py-1 rounded text-white
+    ${!motivoCierre ||
+                    (motivoCierre === "OTRO" &&
+                      observacionesCierre.trim().length < 10)
                     ? "bg-gray-400 cursor-not-allowed"
                     : "bg-red-600 hover:bg-red-700"
-                  }
-    `}
+                  }`}
               >
                 Cerrar caso crítico
               </button>
+
             </div>
           </div>
         </div>
       )}
+
 
       {casoSeleccionado && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
