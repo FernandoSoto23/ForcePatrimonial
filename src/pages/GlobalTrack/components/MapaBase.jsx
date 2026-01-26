@@ -12,24 +12,54 @@ export default function MapaBase({
   mapStyle,
   units = [],
   geocercasGeoJSON,
+  geocercasLinealesGeoJSON,
+  followUnitId = null,
+  setFollowUnitId = () => { }, // ✅ para apagar seguimiento desde aquí
+
+  // ✅ NUEVO: mostrar/ocultar popup info (etiqueta)
+  showInfoPopup = true,
 }) {
   const containerRef = useRef(null);
   const hoverPopupRef = useRef(null);
 
+  // ✅ ruta de seguimiento
+  const followPathRef = useRef([]);
+  const lastFollowPosRef = useRef(null);
+
+  // ✅ throttle (para no trabar)
+  const lastFollowTickRef = useRef(0);
+
+  // ✅ cache geocerca para no recalcular siempre
+  const lastGeoCheckPosRef = useRef(null);
+  const lastGeoResultRef = useRef({ geoNormal: null, geoLineal: null });
+
+  // ✅ evitar bug: se apaga solo por cerrar popup cuando se actualiza HTML
+  const closingByProgramRef = useRef(false);
+
+  // ✅ zoom libre (si usuario hace zoom, no forzamos)
+  const userZoomingRef = useRef(false);
+  const zoomTimeoutRef = useRef(null);
+
+  // ✅ evita que el popup se borre cuando se oculta por showInfoPopup
+  const popupHiddenByToggleRef = useRef(false);
+
+  // ✅ NEW: evitar que se cierre por error (cuando hacemos remove manual)
+  const closingBecauseHideRef = useRef(false);
+
   /* =========================
      INDEX DE UNIDADES (ID STRING → NOMBRE)
-     🔥 ESTE ERA EL ERROR
   ========================= */
   const unitNameById = useMemo(() => {
     const map = new Map();
     units.forEach((u) => {
-      const id = String(u.id); // 👈 NORMALIZADO
+      const id = String(u.id);
       const name =
         u.nm ||
         u.name ||
         u.alias ||
         u.device_name ||
         u.unit_name ||
+        u.unidad ||
         "";
       map.set(id, name);
     });
@@ -41,8 +71,48 @@ export default function MapaBase({
   ========================= */
   const getLat = (u) => Number(u.lat ?? u.latitude ?? u.latitud);
   const getLon = (u) => Number(u.lon ?? u.lng ?? u.longitude ?? u.longitud);
-  const getHeading = (u) =>
-    Number(u.course ?? u.heading ?? u.angle ?? 0);
+  const getHeading = (u) => Number(u.course ?? u.heading ?? u.angle ?? 0);
+
+  const getUnitById = (id) => {
+    return units.find((x) => String(x.id) === String(id)) || null;
+  };
+
+  const getUnitCoordsById = (id) => {
+    const u = getUnitById(id);
+    if (!u) return null;
+    const lat = getLat(u);
+    const lon = getLon(u);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return [lon, lat];
+  };
+
+  const getUnitSpeedById = (id) => {
+    const u = getUnitById(id);
+    return Number(u?.speed ?? 0);
+  };
+
+  /* =========================
+     🔥 RUN WHEN STYLE READY
+  ========================= */
+  const runWhenReady = (map, fn) => {
+    if (!map) return;
+
+    if (map.isStyleLoaded()) {
+      fn();
+      return;
+    }
+
+    const onReady = () => {
+      try {
+        fn();
+      } catch (e) {
+        console.warn("⚠️ Error en runWhenReady:", e);
+      }
+    };
+
+    map.once("idle", onReady);
+    map.once("styledata", onReady);
+  };
 
   /* =========================
      ENSURE ICON EXISTS
@@ -66,9 +136,178 @@ export default function MapaBase({
       }
       cb();
     };
-    img.src =
-      "data:image/svg+xml;charset=utf-8," +
-      encodeURIComponent(svg);
+
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  };
+
+  /* =========================
+     🔥 GEO HELPERS (SIN LIBRERÍAS)
+  ========================= */
+  const pointInPolygon = (point, polygon) => {
+    let x = point[0],
+      y = point[1];
+    let inside = false;
+
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const xi = polygon[i][0],
+        yi = polygon[i][1];
+      const xj = polygon[j][0],
+        yj = polygon[j][1];
+
+      const intersect =
+        yi > y !== yj > y &&
+        x < ((xj - xi) * (y - yi)) / (yj - yi + 0.0) + xi;
+
+      if (intersect) inside = !inside;
+    }
+
+    return inside;
+  };
+
+  const findPolygonGeofenceName = (coords) => {
+    const features = geocercasGeoJSON?.features || [];
+    if (!features.length) return null;
+
+    for (const f of features) {
+      const g = f?.geometry;
+      if (!g) continue;
+
+      const name = f?.properties?.name || "Geocerca";
+
+      if (g.type === "Polygon") {
+        const ring = g.coordinates?.[0];
+        if (Array.isArray(ring) && ring.length > 3) {
+          if (pointInPolygon(coords, ring)) return name;
+        }
+      }
+
+      if (g.type === "MultiPolygon") {
+        const polys = g.coordinates || [];
+        for (const p of polys) {
+          const ring = p?.[0];
+          if (Array.isArray(ring) && ring.length > 3) {
+            if (pointInPolygon(coords, ring)) return name;
+          }
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const distPointToSegment = (p, a, b) => {
+    const px = p[0],
+      py = p[1];
+    const ax = a[0],
+      ay = a[1];
+    const bx = b[0],
+      by = b[1];
+
+    const dx = bx - ax;
+    const dy = by - ay;
+
+    if (dx === 0 && dy === 0) {
+      const vx = px - ax;
+      const vy = py - ay;
+      return Math.sqrt(vx * vx + vy * vy);
+    }
+
+    const t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy);
+    const tt = Math.max(0, Math.min(1, t));
+
+    const cx = ax + tt * dx;
+    const cy = ay + tt * dy;
+
+    const vx = px - cx;
+    const vy = py - cy;
+
+    return Math.sqrt(vx * vx + vy * vy);
+  };
+
+  const findLinearGeofenceName = (coords) => {
+    const features = geocercasLinealesGeoJSON?.features || [];
+    if (!features.length) return null;
+
+    const TH = 0.00025; // ~25-30m
+
+    for (const f of features) {
+      const g = f?.geometry;
+      if (!g || g.type !== "LineString") continue;
+
+      const name = f?.properties?.name || "Lineal";
+      const line = g.coordinates || [];
+      if (line.length < 2) continue;
+
+      for (let i = 0; i < line.length - 1; i++) {
+        const a = line[i];
+        const b = line[i + 1];
+        const d = distPointToSegment(coords, a, b);
+        if (d <= TH) return name;
+      }
+    }
+
+    return null;
+  };
+
+  /* =========================
+     ✅ MOVIMIENTO REAL (para geocercas)
+  ========================= */
+  const movedEnoughForGeo = (coords) => {
+    const last = lastGeoCheckPosRef.current;
+    if (!last) return true;
+
+    const TH = 0.00018;
+    const dx = Math.abs(last[0] - coords[0]);
+    const dy = Math.abs(last[1] - coords[1]);
+    return dx > TH || dy > TH;
+  };
+
+  /* =========================
+     ✅ POPUP UI BONITO
+  ========================= */
+  const buildPopupHTML = ({ name, speed, geoNormal, geoLineal }) => {
+    const speedColor = speed > 0 ? "#16a34a" : "#6b7280";
+    const statusText =
+      geoNormal || geoLineal ? "Dentro de geocerca" : "Fuera de geocerca";
+    const statusColor = geoNormal || geoLineal ? "#16a34a" : "#ef4444";
+
+    return `
+      <div style="
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+        min-width: 230px;
+        padding: 10px 12px;
+      ">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <div style="font-weight:800; font-size:14px; color:#111827;">
+            ${name || "Unidad"}
+          </div>
+          <div style="
+            font-size:12px;
+            font-weight:700;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: ${speed > 0 ? "#dcfce7" : "#f3f4f6"};
+            color: ${speedColor};
+            white-space:nowrap;
+          ">
+            ${speed} km/h
+          </div>
+        </div>
+
+        <div style="margin-top:6px; font-size:12px; color:${statusColor}; font-weight:700;">
+          ${statusText}
+        </div>
+
+        <div style="margin-top:8px; font-size:12px; color:#374151; line-height:1.35;">
+          ${geoNormal ? `<div><b>Geocerca:</b> ${geoNormal}</div>` : ""}
+          ${geoLineal ? `<div><b>Lineal:</b> ${geoLineal}</div>` : ""}
+          ${!geoNormal && !geoLineal
+        ? `<div style="color:#6b7280;">Sin geocerca</div>`
+        : ""
+      }
+        </div>
+      </div>
+    `;
   };
 
   /* =========================
@@ -85,7 +324,7 @@ export default function MapaBase({
           return {
             type: "Feature",
             properties: {
-              id: String(u.id), // 👈 STRING
+              id: String(u.id),
               speed: Number(u.speed ?? 0),
               heading: getHeading(u),
             },
@@ -97,10 +336,7 @@ export default function MapaBase({
         })
         .filter(Boolean);
 
-      const geojson = {
-        type: "FeatureCollection",
-        features,
-      };
+      const geojson = { type: "FeatureCollection", features };
 
       if (!map.getSource("units")) {
         map.addSource("units", { type: "geojson", data: geojson });
@@ -127,27 +363,60 @@ export default function MapaBase({
           },
         });
 
-        /* ===== CLICK POPUP ===== */
+        /* =========================================================
+           ✅ CLICK POPUP (AHORA RESPETA showInfoPopup SOLO EN FOLLOW)
+        ========================================================= */
         map.on("click", "units-layer", (e) => {
           const f = e.features?.[0];
           if (!f) return;
 
           const id = String(f.properties.id);
-          const name = unitNameById.get(id) || "";
+          const coords = f.geometry.coordinates;
 
-          popupRef?.current?.remove();
+          // ✅ SI ESTÁS SIGUIENDO ESA MISMA UNIDAD Y showInfoPopup está OFF -> NO mostrar popup
+          if (followUnitId && String(followUnitId) === id && !showInfoPopup) {
+            // si existía popup previo, lo quitamos pero sin apagar follow
+            if (popupRef.current) {
+              closingByProgramRef.current = true;
+              popupRef.current.remove();
+              popupRef.current = null;
+              closingByProgramRef.current = false;
+            }
+            return;
+          }
+
+          const name = unitNameById.get(id) || "";
+          const speed = Number(f.properties.speed ?? 0);
+
+          const geoNormal = findPolygonGeofenceName(coords);
+          const geoLineal = findLinearGeofenceName(coords);
+
+          if (popupRef.current) {
+            closingByProgramRef.current = true;
+            popupRef.current.remove();
+            popupRef.current = null;
+            closingByProgramRef.current = false;
+          }
+
           popupRef.current = new mapboxgl.Popup()
-            .setLngLat(f.geometry.coordinates)
-            .setHTML(
-              `
-              ${name ? `<strong>${name}</strong><br/>` : ""}
-              Velocidad: ${f.properties.speed} km/h
-              `
-            )
+            .setLngLat(coords)
+            .setHTML(buildPopupHTML({ name, speed, geoNormal, geoLineal }))
             .addTo(map);
+
+          popupRef.current.on("close", () => {
+            if (closingByProgramRef.current) return;
+
+            // ✅ si el usuario cierra el popup manualmente (X) y era el follow -> apaga seguimiento
+            if (followUnitId && String(followUnitId) === id) {
+              setFollowUnitId(null);
+              clearFollowRoute(map);
+            }
+
+            popupRef.current = null;
+          });
         });
 
-        /* ===== HOVER (COMO WIALON) ===== */
+        /* ===== HOVER ===== */
         map.on("mousemove", "units-layer", (e) => {
           const f = e.features?.[0];
           if (!f) return;
@@ -177,6 +446,7 @@ export default function MapaBase({
           hoverPopupRef.current?.remove();
           hoverPopupRef.current = null;
         });
+
       } else {
         map.getSource("units").setData(geojson);
       }
@@ -184,7 +454,7 @@ export default function MapaBase({
   };
 
   /* =========================
-     GEOCERCAS
+     GEOCERCAS NORMALES
   ========================= */
   const drawGeocercas = (map) => {
     if (!geocercasGeoJSON) return;
@@ -194,10 +464,7 @@ export default function MapaBase({
       return;
     }
 
-    map.addSource("geocercas", {
-      type: "geojson",
-      data: geocercasGeoJSON,
-    });
+    map.addSource("geocercas", { type: "geojson", data: geocercasGeoJSON });
 
     map.addLayer({
       id: "geocercas-fill",
@@ -221,6 +488,208 @@ export default function MapaBase({
   };
 
   /* =========================
+     GEOCERCAS LINEALES
+  ========================= */
+  const drawGeocercasLineales = (map) => {
+    if (!geocercasLinealesGeoJSON) return;
+
+    if (map.getSource("geocercas-lineales")) {
+      map.getSource("geocercas-lineales").setData(geocercasLinealesGeoJSON);
+      return;
+    }
+
+    map.addSource("geocercas-lineales", {
+      type: "geojson",
+      data: geocercasLinealesGeoJSON,
+    });
+
+    if (!map.getLayer("geocercas-lineales-layer")) {
+      map.addLayer({
+        id: "geocercas-lineales-layer",
+        type: "line",
+        source: "geocercas-lineales",
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: { "line-color": "#00d0ff", "line-width": 3, "line-opacity": 0.9 },
+      });
+    }
+  };
+
+  /* =========================
+     ✅ RASTRO PRO
+  ========================= */
+  const ensureFollowRoute = (map) => {
+    if (!map.getSource("follow-route")) {
+      map.addSource("follow-route", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+    }
+
+    const beforeId = map.getLayer("units-layer") ? "units-layer" : undefined;
+
+    if (!map.getLayer("follow-route-outline")) {
+      map.addLayer(
+        {
+          id: "follow-route-outline",
+          type: "line",
+          source: "follow-route",
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: { "line-color": "#000", "line-width": 8, "line-opacity": 0.45 },
+        },
+        beforeId
+      );
+    }
+
+    if (!map.getLayer("follow-route-layer")) {
+      map.addLayer(
+        {
+          id: "follow-route-layer",
+          type: "line",
+          source: "follow-route",
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: {
+            "line-color": "#f97316",
+            "line-width": 4,
+            "line-opacity": 0.95,
+          },
+        },
+        beforeId
+      );
+    }
+  };
+
+  const clearFollowRoute = (map) => {
+    followPathRef.current = [];
+    lastFollowPosRef.current = null;
+    lastGeoCheckPosRef.current = null;
+    lastGeoResultRef.current = { geoNormal: null, geoLineal: null };
+
+    const src = map.getSource("follow-route");
+    if (src) src.setData({ type: "FeatureCollection", features: [] });
+  };
+
+  const pushFollowPoint = (coords) => {
+    const last = lastFollowPosRef.current;
+
+    if (
+      last &&
+      Math.abs(last[0] - coords[0]) < 0.00001 &&
+      Math.abs(last[1] - coords[1]) < 0.00001
+    )
+      return;
+
+    lastFollowPosRef.current = coords;
+    followPathRef.current.push(coords);
+
+    if (followPathRef.current.length > 1200) {
+      followPathRef.current.shift();
+    }
+  };
+
+  const updateFollowRouteSource = (map) => {
+    const path = followPathRef.current;
+    if (path.length < 2) return;
+
+    const src = map.getSource("follow-route");
+    if (!src) return;
+
+    src.setData({
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "LineString", coordinates: path },
+          properties: {},
+        },
+      ],
+    });
+  };
+
+  /* =========================
+     ✅ FOLLOW (CORREGIDO TOTAL)
+  ========================= */
+  const followUnitTick = (map) => {
+    if (!followUnitId) return;
+
+    const now = Date.now();
+    if (now - lastFollowTickRef.current < 750) return;
+    lastFollowTickRef.current = now;
+
+    const coords = getUnitCoordsById(followUnitId);
+    if (!coords) return;
+
+    if (!userZoomingRef.current) {
+      map.easeTo({
+        center: coords,
+        zoom: map.getZoom(),
+        duration: 450,
+      });
+    } else {
+      map.easeTo({
+        center: coords,
+        duration: 450,
+      });
+    }
+
+    ensureFollowRoute(map);
+    pushFollowPoint(coords);
+    updateFollowRouteSource(map);
+
+    if (!showInfoPopup) {
+      popupHiddenByToggleRef.current = true;
+      closingBecauseHideRef.current = true;
+
+      if (popupRef.current) {
+        closingByProgramRef.current = true;
+        popupRef.current.remove();
+        popupRef.current = null;
+        closingByProgramRef.current = false;
+      }
+
+      closingBecauseHideRef.current = false;
+      return;
+    }
+
+    popupHiddenByToggleRef.current = false;
+
+    const name = unitNameById.get(String(followUnitId)) || "";
+    const speed = getUnitSpeedById(followUnitId);
+
+    let { geoNormal, geoLineal } = lastGeoResultRef.current;
+
+    if (movedEnoughForGeo(coords)) {
+      geoNormal = findPolygonGeofenceName(coords);
+      geoLineal = findLinearGeofenceName(coords);
+
+      lastGeoCheckPosRef.current = coords;
+      lastGeoResultRef.current = { geoNormal, geoLineal };
+    }
+
+    const html = buildPopupHTML({ name, speed, geoNormal, geoLineal });
+
+    if (popupRef.current) {
+      closingByProgramRef.current = true;
+      popupRef.current.setLngLat(coords).setHTML(html);
+      closingByProgramRef.current = false;
+    } else {
+      popupRef.current = new mapboxgl.Popup()
+        .setLngLat(coords)
+        .setHTML(html)
+        .addTo(map);
+
+      popupRef.current.on("close", () => {
+        if (closingByProgramRef.current) return;
+        if (popupHiddenByToggleRef.current) return;
+        if (closingBecauseHideRef.current) return;
+
+        setFollowUnitId(null);
+        clearFollowRoute(map);
+        popupRef.current = null;
+      });
+    }
+  };
+
+  /* =========================
      INIT MAP
   ========================= */
   useEffect(() => {
@@ -236,36 +705,114 @@ export default function MapaBase({
     mapRef.current = map;
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
+    map.on("zoomstart", () => {
+      userZoomingRef.current = true;
+      if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
+
+      zoomTimeoutRef.current = setTimeout(() => {
+        userZoomingRef.current = false;
+      }, 1200);
+    });
+
     map.on("load", () => {
-      drawGeocercas(map);
-      drawUnits(map);
+      runWhenReady(map, () => {
+        drawGeocercas(map);
+        drawGeocercasLineales(map);
+        drawUnits(map);
+
+        if (followUnitId) followUnitTick(map);
+      });
     });
 
     return () => map.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* =========================
+     STYLE CHANGE
+  ========================= */
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
     map.setStyle(mapStyle);
+
     map.once("style.load", () => {
-      drawGeocercas(map);
-      drawUnits(map);
+      runWhenReady(map, () => {
+        drawGeocercas(map);
+        drawGeocercasLineales(map);
+        drawUnits(map);
+
+        if (followUnitId) {
+          ensureFollowRoute(map);
+          updateFollowRouteSource(map);
+        }
+      });
     });
   }, [mapStyle]);
 
+  /* =========================
+     UPDATE UNITS
+  ========================= */
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
-    drawUnits(map);
-  }, [units]);
+    if (!map) return;
+
+    runWhenReady(map, () => {
+      drawUnits(map);
+      if (followUnitId) followUnitTick(map);
+    });
+  }, [units, followUnitId, showInfoPopup]);
+
+  /* =========================
+     WHEN FOLLOW CHANGES
+  ========================= */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    runWhenReady(map, () => {
+      if (!followUnitId) {
+        clearFollowRoute(map);
+
+        if (popupRef?.current) {
+          closingByProgramRef.current = true;
+          popupRef.current.remove();
+          popupRef.current = null;
+          closingByProgramRef.current = false;
+        }
+
+        return;
+      }
+
+      ensureFollowRoute(map);
+      clearFollowRoute(map);
+      followUnitTick(map);
+    });
+  }, [followUnitId, showInfoPopup]);
+
+  /* =========================
+     UPDATE GEOCERCAS
+  ========================= */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    runWhenReady(map, () => {
+      drawGeocercas(map);
+      if (followUnitId) followUnitTick(map);
+    });
+  }, [geocercasGeoJSON?.features?.length]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
-    drawGeocercas(map);
-  }, [geocercasGeoJSON]);
+    if (!map) return;
+
+    runWhenReady(map, () => {
+      drawGeocercasLineales(map);
+      if (followUnitId) followUnitTick(map);
+    });
+  }, [geocercasLinealesGeoJSON?.features?.length]);
 
   return <div ref={containerRef} className="w-full h-full" />;
 }

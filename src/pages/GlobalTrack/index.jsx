@@ -10,9 +10,14 @@ import HistorialPanel from "./components/HistorialPanel";
 
 import { useUnits } from "../../context/UnitsContext";
 import { useGeocercas } from "../../context/GeocercasContext";
+import { useGeocercasLineales } from "../../context/GeocercasLinealesContext";
 
 import { FaTruck, FaMapMarkedAlt, FaMapMarkerAlt } from "react-icons/fa";
 import { MdOutlineReplay10 } from "react-icons/md";
+import { MdGpsFixed } from "react-icons/md";
+
+// ✅ iconos para etiqueta SOLO seguimiento
+import { AiFillEye, AiFillEyeInvisible } from "react-icons/ai";
 
 /* =========================
    MAPBOX STYLES
@@ -53,12 +58,34 @@ function getCoords(u) {
   return [lon, lat];
 }
 
+function getGeoCenterSafe(feature) {
+  try {
+    const g = feature?.geometry;
+    if (!g || !g.coordinates) return null;
+
+    if (g.type === "Polygon") {
+      const c = g.coordinates?.[0]?.[0];
+      return Array.isArray(c) && c.length >= 2 ? c : null;
+    }
+
+    if (g.type === "MultiPolygon") {
+      const c = g.coordinates?.[0]?.[0]?.[0];
+      return Array.isArray(c) && c.length >= 2 ? c : null;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 /* =========================
    COMPONENT
 ========================= */
 export default function GlobalTrack() {
   const { units, refreshUnits } = useUnits();
   const { polys } = useGeocercas();
+  const { lines } = useGeocercasLineales();
 
   const mapRef = useRef(null);
   const popupRef = useRef(null);
@@ -70,6 +97,12 @@ export default function GlobalTrack() {
 
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyUnitId, setHistoryUnitId] = useState(null);
+
+  // ✅ seguir unidad
+  const [followUnitId, setFollowUnitId] = useState(null);
+
+  // ✅ SOLO ETIQUETA DEL SEGUIMIENTO
+  const [followShowPopup, setFollowShowPopup] = useState(true);
 
   /* =========================
      AUTO REFRESH
@@ -94,9 +127,7 @@ export default function GlobalTrack() {
   const filteredUnits = useMemo(() => {
     if (!search) return safeUnits;
     const q = normalize(search);
-    return safeUnits.filter((u) =>
-      normalize(getUnitName(u)).includes(q)
-    );
+    return safeUnits.filter((u) => normalize(getUnitName(u)).includes(q));
   }, [safeUnits, search]);
 
   /* =========================
@@ -113,21 +144,20 @@ export default function GlobalTrack() {
 
     if (!searchGeo) return list;
     const q = normalize(searchGeo);
-    return list.filter((g) =>
-      normalize(g._name).includes(q)
-    );
+    return list.filter((g) => normalize(g._name).includes(q));
   }, [polys, searchGeo]);
 
   /* =========================
      ACTIONS
   ========================= */
   function focusUnit(u) {
-    const map = mapRef.current;
+    const map = mapRef?.current;
     const coords = getCoords(u);
     if (!map || !coords) return;
 
     map.flyTo({ center: coords, zoom: 16 });
-    popupRef.current?.remove();
+
+    popupRef?.current?.remove?.();
     popupRef.current = new mapboxgl.Popup()
       .setLngLat(coords)
       .setHTML(`<strong>${getUnitName(u)}</strong>`)
@@ -139,12 +169,16 @@ export default function GlobalTrack() {
     setHistoryOpen(true);
   }
 
+  function toggleFollow(u) {
+    const id = String(u?.id);
+    setFollowUnitId((prev) => (prev === id ? null : id));
+  }
+
   /* =========================
      RENDER
   ========================= */
   return (
     <div className="relative w-screen h-screen">
-
       <SidebarIcons
         active={activePanel}
         onSelect={(p) => {
@@ -174,6 +208,7 @@ export default function GlobalTrack() {
         <div className="overflow-y-auto max-h-[calc(100vh-160px)]">
           {filteredUnits.map((u) => {
             const speed = Number(u?.speed ?? 0);
+            const isFollowing = followUnitId === String(u.id);
 
             return (
               <div
@@ -182,14 +217,13 @@ export default function GlobalTrack() {
               >
                 <FaTruck className="text-gray-600 shrink-0" />
 
-                {/* Nombre */}
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold truncate">
                     {getUnitName(u)}
                   </div>
                 </div>
 
-                {/* VELOCIDAD (REGRESADA ✅) */}
+                {/* Velocidad */}
                 <span
                   className={[
                     "text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap",
@@ -200,6 +234,44 @@ export default function GlobalTrack() {
                 >
                   {speed} km/h
                 </span>
+
+                {/* ✅ SOLO MOSTRAR BOTÓN SI ESTA UNIDAD SE ESTÁ SIGUIENDO */}
+                {isFollowing && (
+                  <button
+                    title={
+                      followShowPopup
+                        ? "Ocultar etiqueta (seguimiento)"
+                        : "Mostrar etiqueta (seguimiento)"
+                    }
+                    onClick={() => setFollowShowPopup((prev) => !prev)}
+                    className={[
+                      "transition-colors",
+                      followShowPopup
+                        ? "text-gray-600 hover:text-blue-600"
+                        : "text-red-500 hover:text-red-600",
+                    ].join(" ")}
+                  >
+                    {followShowPopup ? (
+                      <AiFillEye size={18} />
+                    ) : (
+                      <AiFillEyeInvisible size={18} />
+                    )}
+                  </button>
+                )}
+
+                {/* ✅ SEGUIR GPS */}
+                <button
+                  title={isFollowing ? "Dejar de seguir" : "Seguir unidad"}
+                  onClick={() => toggleFollow(u)}
+                  className={[
+                    "transition-colors",
+                    isFollowing
+                      ? "text-blue-700"
+                      : "text-gray-500 hover:text-blue-600",
+                  ].join(" ")}
+                >
+                  <MdGpsFixed size={18} />
+                </button>
 
                 {/* Ubicar */}
                 <button
@@ -221,7 +293,6 @@ export default function GlobalTrack() {
               </div>
             );
           })}
-
         </div>
       </SidePanel>
 
@@ -246,8 +317,13 @@ export default function GlobalTrack() {
               key={i}
               className="flex w-full items-center gap-3 px-4 py-3 border-b hover:bg-gray-50 text-left"
               onClick={() => {
-                const c = g?.geometry?.coordinates?.[0]?.[0];
-                mapRef.current?.easeTo({ center: c, zoom: 14 });
+                const map = mapRef?.current;
+                if (!map) return;
+
+                const center = getGeoCenterSafe(g);
+                if (!center) return;
+
+                map.easeTo({ center, zoom: 14 });
               }}
             >
               <FaMapMarkedAlt />
@@ -257,7 +333,7 @@ export default function GlobalTrack() {
         </div>
       </SidePanel>
 
-      {/* ================= MODO MAPA (🔧 RESTAURADO) ================= */}
+      {/* ================= MODO MAPA ================= */}
       <SidePanel
         open={activePanel === "mapStyle"}
         title="Modo de mapa"
@@ -294,6 +370,14 @@ export default function GlobalTrack() {
           type: "FeatureCollection",
           features: polys || [],
         }}
+        geocercasLinealesGeoJSON={{
+          type: "FeatureCollection",
+          features: lines || [],
+        }}
+        followUnitId={followUnitId}
+        setFollowUnitId={setFollowUnitId}
+        // ✅ SOLO PARA SEGUIMIENTO
+        followShowPopup={followShowPopup}
       />
 
       {/* ================= HISTORIAL ================= */}
