@@ -78,28 +78,28 @@ const MOTIVOS_CIERRE_ALERTA = [
   {
     value: "FALSA_ALARMA",
     label: "Falsa alarma",
-    body: "Se valida la alerta y se confirma que corresponde a una falsa alarma."
+    body: "Se valida la alerta y se confirma que corresponde a una falsa alarma.",
   },
   {
     value: "EVENTO_ATENDIDO",
     label: "Evento atendido sin novedad",
-    body: "Se realiza monitoreo y contacto, sin detectar riesgo para la unidad."
+    body: "Se realiza monitoreo y contacto, sin detectar riesgo para la unidad.",
   },
   {
     value: "CONTACTO_OPERADOR",
     label: "Contacto con operador / chofer",
-    body: "Se establece comunicación con el operador y se confirma operación normal."
+    body: "Se establece comunicación con el operador y se confirma operación normal.",
   },
   {
     value: "PROBLEMA_TECNICO",
     label: "Problema técnico",
-    body: "La alerta se genera por falla técnica del dispositivo."
+    body: "La alerta se genera por falla técnica del dispositivo.",
   },
   {
     value: "OTRO",
     label: "Otro (requiere observación)",
-    body: ""
-  }
+    body: "",
+  },
 ];
 
 function casosReducer(state, action) {
@@ -117,7 +117,7 @@ function casosReducer(state, action) {
         const nuevoEvento = payload.base.eventos[0];
 
         // 🛑 DEDUPLICACIÓN
-        if (actual.eventos.some(e => e.id === nuevoEvento.id)) {
+        if (actual.eventos.some((e) => e.id === nuevoEvento.id)) {
           return state;
         }
 
@@ -132,11 +132,7 @@ function casosReducer(state, action) {
       =============================== */
 
       // ❌ IGNORAR TODO LO QUE ESTÉ EN S
-      const eventosNoS = actual.eventos.filter(
-        e => e.geocercaSLTA !== "S"
-      );
-
-
+      const eventosNoS = actual.eventos.filter((e) => e.geocercaSLTA !== "S");
 
       const totalNoS = eventosNoS.length;
 
@@ -171,7 +167,6 @@ function casosReducer(state, action) {
       return state;
   }
 }
-
 
 export default function Casos() {
   /* VARIABLES DE ESTADO */
@@ -241,11 +236,14 @@ export default function Casos() {
     }, {});
   }, [casoCriticoSeleccionado]);
 
-  const contextoEvento = useMemo(() => ({
-    sinSenal: (conteoPorTipo["SIN SENAL"] || 0) > 0,
-    switchPanico: (conteoPorTipo["PANICO"] || 0) > 0,
-    desvioRuta: (conteoPorTipo["DESVIO DE RUTA"] || 0) > 0,
-  }), [conteoPorTipo]);
+  const contextoEvento = useMemo(
+    () => ({
+      sinSenal: (conteoPorTipo["SIN SENAL"] || 0) > 0,
+      switchPanico: (conteoPorTipo["PANICO"] || 0) > 0,
+      desvioRuta: (conteoPorTipo["DESVIO DE RUTA"] || 0) > 0,
+    }),
+    [conteoPorTipo],
+  );
 
   const tiposDisponibles = Object.keys(conteoPorTipo);
 
@@ -356,7 +354,7 @@ export default function Casos() {
   }
   const preguntasActuales = useMemo(
     () => generarPreguntas(contextoEvento),
-    [contextoEvento]
+    [contextoEvento],
   );
   const evaluacionTexto = preguntasActuales
     .map((p) => {
@@ -473,7 +471,6 @@ export default function Casos() {
     });
   };
 
-
   const resumenReps = (reps) => {
     const entries = Object.entries(reps || {});
     if (entries.length === 0) return "—";
@@ -510,9 +507,8 @@ export default function Casos() {
 
     // 🔹 evaluaciones
     setEvaluacionCritica(
-      Object.fromEntries(PREGUNTAS_EVALUACION.map((p) => [p.key, null]))
+      Object.fromEntries(PREGUNTAS_EVALUACION.map((p) => [p.key, null])),
     );
-
 
     // 🔹 protocolos
     resetearProtocolos();
@@ -572,13 +568,11 @@ export default function Casos() {
     }
   }, []);
 
-
   const contarPanicos = (caso) => {
     return (caso.eventos || []).filter(
       (e) => (e.tipoNorm || normalize(e.tipo)) === "PANICO",
     ).length;
   };
-
 
   useEffect(() => {
     conectarTwilio();
@@ -762,7 +756,6 @@ export default function Casos() {
       {casoCriticoSeleccionado && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 pointer-events-auto">
           <div className="bg-white rounded-lg w-[1000px] max-w-full max-h-[85vh] flex flex-col shadow mt-10">
-
             {/* ================= HEADER (FIJO) ================= */}
             <div className="px-6 py-4 border-b flex justify-between items-start">
               <div>
@@ -784,7 +777,6 @@ export default function Casos() {
 
             {/* ================= BODY (SCROLL ÚNICO) ================= */}
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
-
               {/* INFO GENERAL */}
               <div className="text-xs text-gray-700 space-y-1">
                 <div>
@@ -807,10 +799,11 @@ export default function Casos() {
                   <button
                     onClick={() => setFiltroTipoAlerta("TODOS")}
                     className={`px-3 py-1 rounded-full text-[11px] font-semibold border
-                ${filtroTipoAlerta === "TODOS"
-                        ? "bg-black text-white border-black"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                      }`}
+                ${
+                  filtroTipoAlerta === "TODOS"
+                    ? "bg-black text-white border-black"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                }`}
                   >
                     TODOS ({casoCriticoSeleccionado.eventos.length})
                   </button>
@@ -820,10 +813,11 @@ export default function Casos() {
                       key={tipo}
                       onClick={() => setFiltroTipoAlerta(tipo)}
                       className={`px-3 py-1 rounded-full text-[11px] font-semibold border
-                  ${filtroTipoAlerta === tipo
-                          ? "bg-red-600 text-white border-red-600"
-                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                        }`}
+                  ${
+                    filtroTipoAlerta === tipo
+                      ? "bg-red-600 text-white border-red-600"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                  }`}
                     >
                       {tipo} ({conteoPorTipo[tipo]})
                     </button>
@@ -883,7 +877,6 @@ export default function Casos() {
                       </a>
                     )}
                   </div>
-
                 ))}
               </div>
 
@@ -893,7 +886,6 @@ export default function Casos() {
                 onChange={setEvaluacionCritica}
                 contextoEvento={contextoEvento}
               />
-
 
               {/* CIERRE */}
               <div>
@@ -950,14 +942,13 @@ export default function Casos() {
 
                   // 🚫 2) VALIDAR EVALUACIÓN
                   const faltantes = preguntasActuales.filter(
-                    (p) => !evaluacionCritica[p.key]
+                    (p) => !evaluacionCritica[p.key],
                   );
 
                   if (faltantes.length > 0) {
                     toast.error("Debes completar toda la evaluación operativa");
                     return;
                   }
-
 
                   const result = await Swal.fire({
                     title: "Cerrar caso crítico",
@@ -977,8 +968,7 @@ export default function Casos() {
 
                   const idUsuario =
                     usuario?.id_usuario ?? usuario?.id ?? usuario?.sub;
-                  const nombreUsuario =
-                    usuario?.nombre ?? usuario?.name;
+                  const nombreUsuario = usuario?.nombre ?? usuario?.name;
 
                   if (!idUsuario || !nombreUsuario) {
                     toast.error("Usuario inválido, no se puede cerrar el caso");
@@ -992,7 +982,9 @@ export default function Casos() {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
-                          alertas: casoCriticoSeleccionado.eventos.map(e => e.id),
+                          alertas: casoCriticoSeleccionado.eventos.map(
+                            (e) => e.id,
+                          ),
                           id_usuario: idUsuario,
                           nombre_usuario: nombreUsuario,
                           detalle_cierre: `
@@ -1007,7 +999,7 @@ Fecha cierre: ${new Date().toLocaleString()}
 Unidad: ${casoCriticoSeleccionado.unidad}
 `.trim(),
                         }),
-                      }
+                      },
                     );
 
                     if (!resp.ok) {
@@ -1028,21 +1020,19 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                     observacionesCierre.trim().length < 10)
                 }
                 className={`text-xs px-4 py-1 rounded text-white
-    ${!motivoCierre ||
-                    (motivoCierre === "OTRO" &&
-                      observacionesCierre.trim().length < 10)
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-red-600 hover:bg-red-700"
-                  }`}
+    ${
+      !motivoCierre ||
+      (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
+        ? "bg-gray-400 cursor-not-allowed"
+        : "bg-red-600 hover:bg-red-700"
+    }`}
               >
                 Cerrar caso crítico
               </button>
-
             </div>
           </div>
         </div>
       )}
-
 
       {casoSeleccionado && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
@@ -1110,7 +1100,7 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                   setMotivoCierre(value);
 
                   const motivo = MOTIVOS_CIERRE_ALERTA.find(
-                    (m) => m.value === value
+                    (m) => m.value === value,
                   );
 
                   if (motivo) {
@@ -1138,7 +1128,6 @@ Unidad: ${casoCriticoSeleccionado.unidad}
               )}
             </div>
 
-
             {/* ACCIONES */}
             <div className="mt-5 flex justify-end gap-2">
               <button
@@ -1156,7 +1145,10 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                     return;
                   }
 
-                  if (motivoCierre === "OTRO" && detalleCierre.trim().length < 10) {
+                  if (
+                    motivoCierre === "OTRO" &&
+                    detalleCierre.trim().length < 10
+                  ) {
                     toast.error("Debes escribir una observación válida");
                     return;
                   }
@@ -1204,10 +1196,11 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                   (motivoCierre === "OTRO" && detalleCierre.trim().length < 10)
                 }
                 className={`text-xs px-3 py-1 rounded text-white
-      ${detalleCierre.trim().length < 50
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-green-600 hover:bg-green-700"
-                  }
+      ${
+        detalleCierre.trim().length < 50
+          ? "bg-gray-400 cursor-not-allowed"
+          : "bg-green-600 hover:bg-green-700"
+      }
     `}
               >
                 Cerrar caso
@@ -1223,10 +1216,13 @@ Unidad: ${casoCriticoSeleccionado.unidad}
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-3 h-[calc(100vh-140px)] flex flex-col">
         <div className="flex justify-between mb-4 items-center">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-gray-900">
-              Alertas
-            </h2>
-
+            <h2 className="text-sm font-semibold text-gray-900">Alertas</h2>
+            <ResumenCargaAlertas
+              totalAlertas={totalAlertas}
+              alertasFiltradas={alertasFiltradas}
+              alertasProcesadas={alertasProcesadas}
+              cargaTerminada={cargaTerminada}
+            />
 
             <span className="bg-emerald-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
               {activos.length}
@@ -1289,8 +1285,6 @@ Unidad: ${casoCriticoSeleccionado.unidad}
               {criticos.length}
             </span>
           </div>
-
-
         </div>
         <div className="flex-1 overflow-y-auto pr-2">
           {criticos.map((c) => (
