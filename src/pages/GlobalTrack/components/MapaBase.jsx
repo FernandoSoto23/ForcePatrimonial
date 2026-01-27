@@ -14,9 +14,9 @@ export default function MapaBase({
   geocercasGeoJSON,
   geocercasLinealesGeoJSON,
   followUnitId = null,
-  setFollowUnitId = () => { }, // ✅ para apagar seguimiento desde aquí
+  setFollowUnitId = () => { },
 
-  // ✅ NUEVO: mostrar/ocultar popup info (etiqueta)
+  // ✅ mostrar/ocultar popup info (etiqueta)
   showInfoPopup = true,
 }) {
   const containerRef = useRef(null);
@@ -26,33 +26,51 @@ export default function MapaBase({
   const followPathRef = useRef([]);
   const lastFollowPosRef = useRef(null);
 
-  // ✅ throttle (para no trabar)
+  // ✅ throttle
   const lastFollowTickRef = useRef(0);
 
-  // ✅ cache geocerca para no recalcular siempre
+  // ✅ cache geocerca
   const lastGeoCheckPosRef = useRef(null);
   const lastGeoResultRef = useRef({ geoNormal: null, geoLineal: null });
 
-  // ✅ evitar bug: se apaga solo por cerrar popup cuando se actualiza HTML
+  // ✅ evitar bug close
   const closingByProgramRef = useRef(false);
 
-  // ✅ zoom libre (si usuario hace zoom, no forzamos)
+  // ✅ zoom libre
   const userZoomingRef = useRef(false);
   const zoomTimeoutRef = useRef(null);
 
   // ✅ evita que el popup se borre cuando se oculta por showInfoPopup
   const popupHiddenByToggleRef = useRef(false);
 
-  // ✅ NEW: evitar que se cierre por error (cuando hacemos remove manual)
+  // ✅ evitar que se cierre por error
   const closingBecauseHideRef = useRef(false);
 
   /* =========================
-     INDEX DE UNIDADES (ID STRING → NOMBRE)
+     ✅ ID UNIFICADO
+  ========================= */
+  const getUnitId = (u) => {
+    return String(
+      u.id ??
+      u.unitId ??
+      u.unit_id ??
+      u.deviceId ??
+      u.device_id ??
+      u.imei ??
+      u.id_device ??
+      u.vehicle_id ??
+      u.vehicleId ??
+      ""
+    );
+  };
+
+  /* =========================
+     INDEX DE UNIDADES (ID → NOMBRE)
   ========================= */
   const unitNameById = useMemo(() => {
     const map = new Map();
     units.forEach((u) => {
-      const id = String(u.id);
+      const id = getUnitId(u);
       const name =
         u.nm ||
         u.name ||
@@ -71,10 +89,12 @@ export default function MapaBase({
   ========================= */
   const getLat = (u) => Number(u.lat ?? u.latitude ?? u.latitud);
   const getLon = (u) => Number(u.lon ?? u.lng ?? u.longitude ?? u.longitud);
+
   const getHeading = (u) => Number(u.course ?? u.heading ?? u.angle ?? 0);
 
   const getUnitById = (id) => {
-    return units.find((x) => String(x.id) === String(id)) || null;
+    const target = String(id);
+    return units.find((x) => getUnitId(x) === target) || null;
   };
 
   const getUnitCoordsById = (id) => {
@@ -88,7 +108,26 @@ export default function MapaBase({
 
   const getUnitSpeedById = (id) => {
     const u = getUnitById(id);
-    return Number(u?.speed ?? 0);
+    return Number(u?.speed ?? u?.velocidad ?? u?.velocity ?? 0);
+  };
+
+  const getUnitSpeedLimitById = (id) => {
+    const u = getUnitById(id);
+    if (!u) return null;
+
+    const raw =
+      u.speedLimit ??
+      u.speed_limit ??
+      u.limiteVelocidad ??
+      u.limite_velocidad ??
+      u.maxSpeed ??
+      u.max_speed ??
+      u.limite ??
+      null;
+
+    if (raw == null) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
   };
 
   /* =========================
@@ -141,7 +180,7 @@ export default function MapaBase({
   };
 
   /* =========================
-     🔥 GEO HELPERS (SIN LIBRERÍAS)
+     🔥 GEO HELPERS
   ========================= */
   const pointInPolygon = (point, polygon) => {
     let x = point[0],
@@ -178,6 +217,9 @@ export default function MapaBase({
         const ring = g.coordinates?.[0];
         if (Array.isArray(ring) && ring.length > 3) {
           if (pointInPolygon(coords, ring)) return name;
+
+          const swapped = ring.map(([a, b]) => [b, a]);
+          if (pointInPolygon(coords, swapped)) return name;
         }
       }
 
@@ -187,6 +229,9 @@ export default function MapaBase({
           const ring = p?.[0];
           if (Array.isArray(ring) && ring.length > 3) {
             if (pointInPolygon(coords, ring)) return name;
+
+            const swapped = ring.map(([a, b]) => [b, a]);
+            if (pointInPolygon(coords, swapped)) return name;
           }
         }
       }
@@ -228,7 +273,7 @@ export default function MapaBase({
     const features = geocercasLinealesGeoJSON?.features || [];
     if (!features.length) return null;
 
-    const TH = 0.00025; // ~25-30m
+    const TH = 0.00025;
 
     for (const f of features) {
       const g = f?.geometry;
@@ -250,7 +295,7 @@ export default function MapaBase({
   };
 
   /* =========================
-     ✅ MOVIMIENTO REAL (para geocercas)
+     ✅ MOVIMIENTO REAL
   ========================= */
   const movedEnoughForGeo = (coords) => {
     const last = lastGeoCheckPosRef.current;
@@ -263,13 +308,68 @@ export default function MapaBase({
   };
 
   /* =========================
-     ✅ POPUP UI BONITO
+     ✅ HOVER TOOLTIP
   ========================= */
-  const buildPopupHTML = ({ name, speed, geoNormal, geoLineal }) => {
+  const buildGeofenceHoverHTML = ({ name, type }) => {
+    return `
+    <div style="
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      min-width: 160px;
+      padding: 6px 8px;
+      font-size: 12px;
+      line-height: 1.25;
+    ">
+      <div style="font-weight:800; color:#111827;">
+        📍 ${name || "Geocerca"}
+      </div>
+      <div style="margin-top:2px; color:#374151;">
+        Tipo: ${type}
+      </div>
+    </div>
+  `;
+  };
+
+  const buildHoverHTML = ({ name, speed, speedLimit }) => {
+    const hasLimit = speedLimit != null;
+    const exceeded = hasLimit && speed > speedLimit;
+
+    return `
+      <div style="
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+        min-width: 180px;
+        padding: 6px 8px;
+        font-size: 12px;
+        line-height: 1.25;
+      ">
+        <div style="font-weight:800; color:#111827;">${name || "Unidad"}</div>
+        <div style="margin-top:2px; color:#374151;">
+          🚚 Velocidad: <b>${speed}</b> km/h
+        </div>
+        ${hasLimit
+        ? `<div style="margin-top:2px; color:#374151;">
+                 ⚠️ Límite: <b>${speedLimit}</b> km/h
+                 ${exceeded
+          ? `<span style="margin-left:6px; color:#ef4444; font-weight:800;">🚨</span>`
+          : ``
+        }
+               </div>`
+        : ``
+      }
+      </div>
+    `;
+  };
+
+  /* =========================
+     ✅ POPUP FOLLOW (panel)
+  ========================= */
+  const buildPopupHTML = ({ name, speed, speedLimit, geoNormal, geoLineal }) => {
     const speedColor = speed > 0 ? "#16a34a" : "#6b7280";
     const statusText =
       geoNormal || geoLineal ? "Dentro de geocerca" : "Fuera de geocerca";
     const statusColor = geoNormal || geoLineal ? "#16a34a" : "#ef4444";
+
+    const hasLimit = speedLimit != null;
+    const exceeded = hasLimit && speed > speedLimit;
 
     return `
       <div style="
@@ -293,6 +393,19 @@ export default function MapaBase({
             ${speed} km/h
           </div>
         </div>
+
+        ${hasLimit
+        ? `
+          <div style="margin-top:6px; font-size:12px; color:#374151;">
+            ⚠️ Límite: <b>${speedLimit}</b> km/h
+            ${exceeded
+          ? `<span style="margin-left:8px; color:#ef4444; font-weight:800;">🚨 Exceso</span>`
+          : ``
+        }
+          </div>
+        `
+        : ``
+      }
 
         <div style="margin-top:6px; font-size:12px; color:${statusColor}; font-weight:700;">
           ${statusText}
@@ -321,11 +434,21 @@ export default function MapaBase({
           const lon = getLon(u);
           if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
 
+          const name =
+            u.nm ||
+            u.name ||
+            u.alias ||
+            u.device_name ||
+            u.unit_name ||
+            u.unidad ||
+            "";
+
           return {
             type: "Feature",
             properties: {
-              id: String(u.id),
-              speed: Number(u.speed ?? 0),
+              id: getUnitId(u),
+              name,
+              speed: Number(u.speed ?? u.velocidad ?? 0),
               heading: getHeading(u),
             },
             geometry: {
@@ -364,66 +487,31 @@ export default function MapaBase({
         });
 
         /* =========================================================
-           ✅ CLICK POPUP (AHORA RESPETA showInfoPopup SOLO EN FOLLOW)
+           ✅ CLICK DESACTIVADO (QUITAR ETIQUETA)
         ========================================================= */
-        map.on("click", "units-layer", (e) => {
-          const f = e.features?.[0];
-          if (!f) return;
-
-          const id = String(f.properties.id);
-          const coords = f.geometry.coordinates;
-
-          // ✅ SI ESTÁS SIGUIENDO ESA MISMA UNIDAD Y showInfoPopup está OFF -> NO mostrar popup
-          if (followUnitId && String(followUnitId) === id && !showInfoPopup) {
-            // si existía popup previo, lo quitamos pero sin apagar follow
-            if (popupRef.current) {
-              closingByProgramRef.current = true;
-              popupRef.current.remove();
-              popupRef.current = null;
-              closingByProgramRef.current = false;
-            }
-            return;
-          }
-
-          const name = unitNameById.get(id) || "";
-          const speed = Number(f.properties.speed ?? 0);
-
-          const geoNormal = findPolygonGeofenceName(coords);
-          const geoLineal = findLinearGeofenceName(coords);
-
-          if (popupRef.current) {
-            closingByProgramRef.current = true;
-            popupRef.current.remove();
-            popupRef.current = null;
-            closingByProgramRef.current = false;
-          }
-
-          popupRef.current = new mapboxgl.Popup()
-            .setLngLat(coords)
-            .setHTML(buildPopupHTML({ name, speed, geoNormal, geoLineal }))
-            .addTo(map);
-
-          popupRef.current.on("close", () => {
-            if (closingByProgramRef.current) return;
-
-            // ✅ si el usuario cierra el popup manualmente (X) y era el follow -> apaga seguimiento
-            if (followUnitId && String(followUnitId) === id) {
-              setFollowUnitId(null);
-              clearFollowRoute(map);
-            }
-
-            popupRef.current = null;
-          });
+        map.on("click", "units-layer", () => {
+          // ✅ NO HACER NADA
+          // (no popup al click)
         });
 
-        /* ===== HOVER ===== */
+        /* =========================
+           ✅ HOVER
+        ========================= */
         map.on("mousemove", "units-layer", (e) => {
           const f = e.features?.[0];
           if (!f) return;
 
           const id = String(f.properties.id);
-          const name = unitNameById.get(id);
-          if (!name) return;
+
+          const name =
+            String(f.properties?.name || "").trim() ||
+            unitNameById.get(id) ||
+            "";
+
+          const speed = getUnitSpeedById(id);
+          const speedFinal = Number.isFinite(speed) ? speed : Number(f.properties.speed ?? 0);
+
+          const speedLimit = getUnitSpeedLimitById(id);
 
           map.getCanvas().style.cursor = "pointer";
 
@@ -437,7 +525,7 @@ export default function MapaBase({
 
           hoverPopupRef.current
             .setLngLat(e.lngLat)
-            .setHTML(`<strong>${name}</strong>`)
+            .setHTML(buildHoverHTML({ name, speed: speedFinal, speedLimit }))
             .addTo(map);
         });
 
@@ -491,7 +579,37 @@ export default function MapaBase({
      GEOCERCAS LINEALES
   ========================= */
   const drawGeocercasLineales = (map) => {
-    if (!geocercasLinealesGeoJSON) return;
+    if (!geocercasLinealesGeoJSON) return;// =========================
+    // ✅ HOVER GEOCERCAS LINEALES
+    // =========================
+    map.on("mousemove", "geocercas-lineales-layer", (e) => {
+      const f = e.features?.[0];
+      if (!f) return;
+
+      const name = f.properties?.name || "Geocerca lineal";
+
+      map.getCanvas().style.cursor = "pointer";
+
+      if (!hoverPopupRef.current) {
+        hoverPopupRef.current = new mapboxgl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          offset: [0, -10],
+        });
+      }
+
+      hoverPopupRef.current
+        .setLngLat(e.lngLat)
+        .setHTML(buildGeofenceHoverHTML({ name, type: "Lineal" }))
+        .addTo(map);
+    });
+
+    map.on("mouseleave", "geocercas-lineales-layer", () => {
+      map.getCanvas().style.cursor = "";
+      hoverPopupRef.current?.remove();
+      hoverPopupRef.current = null;
+    });
+
 
     if (map.getSource("geocercas-lineales")) {
       map.getSource("geocercas-lineales").setData(geocercasLinealesGeoJSON);
@@ -606,7 +724,7 @@ export default function MapaBase({
   };
 
   /* =========================
-     ✅ FOLLOW (CORREGIDO TOTAL)
+     ✅ FOLLOW (POPUP COMO SIEMPRE)
   ========================= */
   const followUnitTick = (map) => {
     if (!followUnitId) return;
@@ -652,8 +770,10 @@ export default function MapaBase({
 
     popupHiddenByToggleRef.current = false;
 
-    const name = unitNameById.get(String(followUnitId)) || "";
-    const speed = getUnitSpeedById(followUnitId);
+    const id = String(followUnitId);
+    const name = unitNameById.get(id) || "Unidad";
+    const speed = getUnitSpeedById(id);
+    const speedLimit = getUnitSpeedLimitById(id);
 
     let { geoNormal, geoLineal } = lastGeoResultRef.current;
 
@@ -665,7 +785,7 @@ export default function MapaBase({
       lastGeoResultRef.current = { geoNormal, geoLineal };
     }
 
-    const html = buildPopupHTML({ name, speed, geoNormal, geoLineal });
+    const html = buildPopupHTML({ name, speed, speedLimit, geoNormal, geoLineal });
 
     if (popupRef.current) {
       closingByProgramRef.current = true;
