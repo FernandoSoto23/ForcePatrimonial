@@ -62,7 +62,7 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
                 },
                 signal: abortRef.current.signal,
                 body: JSON.stringify({
-                    numero: evento?.telefono ?? "96681113366",
+                    numero: /* evento?.telefono ?? */ "96681113366",
                     agentCode,
                 }),
             });
