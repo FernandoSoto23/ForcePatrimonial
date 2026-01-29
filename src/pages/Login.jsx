@@ -1,69 +1,195 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 export default function Login() {
   const fullText = "Wialon Security Dashboard 2.0";
-  const [displayedText, setDisplayedText] = useState("");
-  const [index, setIndex] = useState(0);
+  const [text, setText] = useState("");
+  const [i, setI] = useState(0);
+  const [del, setDel] = useState(false);
+  const [hover, setHover] = useState(false);
 
+  /* ================= TEXTO ANIMADO ================= */
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (index < fullText.length) {
-        setDisplayedText(fullText.slice(0, index + 1));
-        setIndex(index + 1);
+    const speed = del ? 40 : 80;
+    const t = setTimeout(() => {
+      if (!del && i < fullText.length) {
+        setText(fullText.slice(0, i + 1));
+        setI(i + 1);
+      } else if (del && i > 0) {
+        setText(fullText.slice(0, i - 1));
+        setI(i - 1);
+      } else if (i === fullText.length) {
+        setTimeout(() => setDel(true), 1500);
+      } else if (i === 0 && del) {
+        setDel(false);
       }
-    }, 70);
+    }, speed);
 
-    return () => clearTimeout(timer);
-  }, [index]);
+    return () => clearTimeout(t);
+  }, [i, del]);
 
   function handleLogin() {
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("wialon_units");
+    // ✅ En vez de borrar TODO el localStorage, borra solo lo tuyo
+    localStorage.removeItem("wialon_sid");
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("session");
+
     window.location.href = `${API_URL}/auth/wialon/login`;
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center text-white overflow-hidden">
-      {/* Fondo */}
-      <img
-        src="/login.jpg"
-        alt="Background"
-        className="absolute inset-0 w-full h-full object-cover scale-105"
-      />
-
-      {/* Overlay oscuro */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-
-      {/* Card */}
-      <div className="relative z-10 w-full max-w-md rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl p-8 text-center animate-fade-in">
-        {/* Logo / Título */}
-        <h1 className="text-2xl font-semibold tracking-wide mb-2">
-          Force Patrimonial
-        </h1>
-
-        <p className="text-sm text-blue-200 mb-6 min-h-[20px]">
-          {displayedText}
-          <span className="animate-pulse">|</span>
-        </p>
-
-        {/* Botón */}
-        <button
-          onClick={handleLogin}
-          className="w-full py-3 rounded-xl font-semibold text-white
-                     bg-gradient-to-r from-blue-500 to-indigo-600
-                     hover:from-blue-600 hover:to-indigo-700
-                     transition-all duration-300 shadow-lg hover:shadow-blue-500/40"
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        display: "flex",
+        background: "#020617",
+        overflow: "hidden",
+      }}
+    >
+      {/* ================= IZQUIERDA ================= */}
+      <div
+        style={{
+          width: "50%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "clamp(24px, 5vw, 80px)",
+          zIndex: 2,
+        }}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 24,
+          }}
         >
-          Iniciar sesión con Wialon
-        </button>
+          {/* LOGO */}
+          <img
+            src="/logo.png"
+            alt="Force Patrimonial"
+            style={{
+              width: 110,
+              filter: "drop-shadow(0 10px 30px rgba(0,0,0,0.7))",
+            }}
+          />
 
-        {/* Footer */}
-        <p className="mt-6 text-xs text-white/60">
-          Seguridad Patrimonial · Acceso controlado
-        </p>
+          {/* ===== PANEL GLASS iOS ===== */}
+          <div
+            style={{
+              position: "relative",
+              width: "100%",
+              maxWidth: 420,
+              padding: 40,
+              borderRadius: 26,
+              color: "#fff",
+              background:
+                "linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.06))",
+              backdropFilter: hover ? "blur(30px)" : "blur(22px)",
+              WebkitBackdropFilter: hover ? "blur(30px)" : "blur(22px)",
+              border: "1px solid rgba(255,255,255,0.25)",
+              boxShadow:
+                "0 40px 90px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.25)",
+              overflow: "hidden",
+            }}
+          >
+            {/* ===== REFLEJO ANIMADO ===== */}
+            <div
+              style={{
+                position: "absolute",
+                inset: "-60%",
+                background:
+                  "linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%)",
+                transform: "rotate(12deg)",
+                animation: "glassMove 8s linear infinite",
+                pointerEvents: "none",
+                opacity: hover ? 0.9 : 0.6,
+              }}
+            />
+
+            <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 6 }}>
+              Force Patrimonial
+            </h1>
+
+            <p style={{ color: "#cbd5f5", marginBottom: 32 }}>
+              Accede al panel con tu cuenta de Wialon
+            </p>
+
+            <button
+              onClick={handleLogin}
+              style={{
+                width: "100%",
+                padding: "14px 0",
+                background: "#000",
+                color: "#fff",
+                borderRadius: 14,
+                fontWeight: 600,
+                border: "none",
+                cursor: "pointer",
+                boxShadow: "0 10px 30px rgba(0,0,0,0.6)",
+              }}
+            >
+              Entrar
+            </button>
+
+            <p
+              style={{
+                marginTop: 24,
+                fontFamily: "monospace",
+                fontSize: 13,
+                color: "#94a3b8",
+              }}
+            >
+              {text}
+              <span>|</span>
+            </p>
+
+            <p style={{ marginTop: 36, fontSize: 12, color: "#64748b" }}>
+              © 2026 Paquetexpress
+            </p>
+          </div>
+        </div>
       </div>
+
+      {/* ================= DERECHA ================= */}
+      <div
+        style={{
+          width: "50%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "clamp(24px, 4vw, 80px)",
+          transition: "filter 0.6s ease",
+          filter: hover ? "blur(8px) brightness(0.85)" : "none",
+        }}
+      >
+        <img
+          src="/login.jpg"
+          alt="Centro de Monitoreo"
+          style={{
+            maxWidth: "100%",
+            maxHeight: "100%",
+            objectFit: "contain",
+            transition: "transform 0.6s ease",
+            transform: hover ? "scale(1.03)" : "scale(1)",
+            filter: "drop-shadow(0 40px 80px rgba(0,0,0,0.9))",
+          }}
+        />
+      </div>
+
+      {/* ===== KEYFRAMES ===== */}
+      <style>{`
+        @keyframes glassMove {
+          0% { transform: translateX(-40%) rotate(12deg); }
+          100% { transform: translateX(40%) rotate(12deg); }
+        }
+      `}</style>
     </div>
   );
 }
