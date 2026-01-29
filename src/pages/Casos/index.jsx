@@ -8,26 +8,14 @@ import {
 } from "react";
 
 import { io } from "socket.io-client";
-import { ShieldAlert, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "react-toastify";
 import { useUnits } from "../../context/UnitsContext";
 import { generarPreguntas } from "./components/EvaluacionOperativa/preguntasEvaluacion";
 import Swal from "sweetalert2";
-import ProtocolLauncher from "./components/ProtocoloLauncher";
 import MapaUnidadLive from "./components/MapaUnidadLive";
-import { loadGeocercasOnce } from "./utils/geocercasCache";
-import ProtocoloAsaltoUnidadUI from "./components/ProtocoloAsaltoUnidadUI";
-import FlowRunnerBotonPanico from "./components/FlowRunnerBotonPanico";
-import ProtocoloDesvioRutaNoAutorizadoUI from "./components/ProtocoloDesvioRutaNoAutorizadoUI";
-import ProtocoloEnfermedad from "./components/ProtocoloEnfermedad";
-import InseguridadSinRiesgo from "./components/InseguridadSinRiesgo";
-import UnidadDetenida from "./components/UnidadDetenida";
-import UnidadSinSenal from "./components/UnidadSinSenal";
-
+import ModalLlamadaCabina from "./components/ModalLlamada";
 import EvaluacionOperativa from "./components/EvaluacionOperativa/EvaluacionOperativa";
-import { detectarGeocercasParaAlerta } from "./utils/geocercasDetector";
 import { tsCaso, esPanico } from "./utils/casos";
-import { obtenerUnitIdDesdeNombre } from "./utils/unidades";
 import CasoActivoCard from "./components/CasoActivoCard";
 import CasoCriticoCard from "./components/CasoCriticoCard";
 import {
@@ -206,7 +194,12 @@ export default function Casos() {
     sinSenal: false,
   });
 
+
+  const [modalLlamadaAbierto, setModalLlamadaAbierto] = useState(false);
+  const [eventoLlamada, setEventoLlamada] = useState(null);
+
   /* USE REF */
+  const llamadaActivaRef = useRef(null);
   const twilioDeviceRef = useRef(null);
   const unidadesUsuarioRef = useRef(new Set());
   const unidadValidaCacheRef = useRef(new Map());
@@ -547,6 +540,15 @@ export default function Casos() {
       alerta: caso.eventos[0],
     });
   }, []);
+  const llamarCabina = useCallback((evento) => {
+    if (modalLlamadaAbierto) return;
+
+
+    setEventoLlamada(evento);
+    setModalLlamadaAbierto(true);
+    llamadaActivaRef.current = true;
+  }, [modalLlamadaAbierto]);
+
 
   const llamarOperadorCb = useCallback(async (evento, opciones = {}) => {
     try {
@@ -759,6 +761,15 @@ export default function Casos() {
   ${casoCriticoSeleccionado ? "pointer-events-none" : ""}
     `}
     >
+      <ModalLlamadaCabina
+        abierto={modalLlamadaAbierto}
+        evento={eventoLlamada}
+        onColgar={() => {
+          llamadaActivaRef.current = null;
+          setModalLlamadaAbierto(false);
+          setEventoLlamada(null);
+        }}
+      />
       {casoCriticoSeleccionado && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 pointer-events-auto">
           <div className="bg-white rounded-lg w-[1000px] max-w-full max-h-[85vh] flex flex-col shadow mt-10">
@@ -1319,6 +1330,7 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                 extraerVelocidad={extraerVelocidad}
                 extraerMapsUrl={extraerMapsUrl}
                 MensajeExpandable={MensajeExpandable}
+                onLlamarCabina={llamarCabina}
               />
             </div>
           ))}
