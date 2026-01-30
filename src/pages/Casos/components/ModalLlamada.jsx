@@ -35,9 +35,11 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
         const data = await resp.json();
         console.log(data);
         if (data?.phone) {
-          setTelefonoUnidad("9"+data.phone);
-        } else {
-          alert("No se encontró teléfono para esta unidad");
+          // ✅ limpiar teléfono: quitar +52
+          const limpio = data.phone.replace("+52", "");
+
+          // ✅ agregar prefijo 9
+          setTelefonoUnidad("9" + limpio);
         }
       } catch (err) {
         console.error("Error obteniendo teléfono:", err);
