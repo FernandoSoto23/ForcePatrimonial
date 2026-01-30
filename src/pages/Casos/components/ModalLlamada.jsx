@@ -35,7 +35,7 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
         const data = await resp.json();
         console.log(data);
         if (data?.phone) {
-          setTelefonoUnidad(data.phone);
+          setTelefonoUnidad("9"+data.phone);
         } else {
           alert("No se encontró teléfono para esta unidad");
         }
