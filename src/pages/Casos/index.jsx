@@ -443,6 +443,7 @@ export default function Casos() {
             {
               id: data.id,
               tipo: tipoRaw,
+              unidad: unidadRaw,
               tipoNorm,
               mensaje,
               tsRx,
