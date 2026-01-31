@@ -11,45 +11,44 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
 
   const abortRef = useRef(null);
   const timerRef = useRef(null);
-  const cacheRef = useRef({});
 
   // ===============================
   // ✅ EXTRAER TELÉFONO DESDE API
   // ===============================
   useEffect(() => {
     if (!abierto || !evento?.unidad) return;
-
-    // ✅ si ya lo tengo, no vuelvo a pedirlo
-    if (cacheRef.current[evento.unidad]) {
-      setTelefonoUnidad(cacheRef.current[evento.unidad]);
-      return;
-    }
-
     const fetchTelefono = async () => {
-      const token = localStorage.getItem("auth_token");
+      try {
+        const token = localStorage.getItem("auth_token");
 
-      const resp = await fetch(
-        `https://apipx.onrender.com/unidad/test-unidad-telefono?name=${encodeURIComponent(
-          evento.unidad,
-        )}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
+        const resp = await fetch(
+          `https://apipx.onrender.com/unidad/test-unidad-telefono?name=${encodeURIComponent(
+            evento.unidad,
+          )}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           },
-        },
-      );
+        );
 
-      const data = await resp.json();
+        const data = await resp.json();
+        console.log(data);
+        if (data?.phone) {
+          // ✅ limpiar teléfono: quitar +52
+          const limpio = data.phone.replace("+52", "");
 
-      if (data?.phone) {
-        const limpio = "9" + data.phone.replace("+52", "");
-        cacheRef.current[evento.unidad] = limpio; // ✅ guardar
-        setTelefonoUnidad(limpio);
+          // ✅ agregar prefijo 9
+          setTelefonoUnidad("9" + limpio);
+        }
+      } catch (err) {
+        console.error("Error obteniendo teléfono:", err);
+        alert("Error consultando teléfono de unidad");
       }
     };
 
     fetchTelefono();
-  }, [abierto, evento?.unidad]);
+  }, [abierto, evento]);
 
   // ===============================
   // TIMER DE LLAMADA

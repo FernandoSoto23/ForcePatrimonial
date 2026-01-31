@@ -189,8 +189,9 @@ export default function Casos() {
     sinSenal: false,
   });
 
+
   const [modalLlamadaAbierto, setModalLlamadaAbierto] = useState(false);
-  const [eventoLlamadaId, setEventoLlamadaId] = useState(null);
+  const [eventoLlamada, setEventoLlamada] = useState(null);
 
   /* USE REF */
   const llamadaActivaRef = useRef(null);
@@ -344,13 +345,6 @@ export default function Casos() {
 
     return pertenece;
   }
-  const eventoSeleccionado = useMemo(() => {
-    if (!eventoLlamadaId) return null;
-
-    return lista
-      .flatMap((c) => c.eventos)
-      .find((e) => e.id === eventoLlamadaId);
-  }, [eventoLlamadaId, lista]);
   const preguntasActuales = useMemo(
     () => generarPreguntas(contextoEvento),
     [contextoEvento],
@@ -543,15 +537,15 @@ export default function Casos() {
       alerta: caso.eventos[0],
     });
   }, []);
-  const llamarCabina = useCallback(
-    (evento) => {
-      if (modalLlamadaAbierto) return;
+  const llamarCabina = useCallback((evento) => {
+    if (modalLlamadaAbierto) return;
 
-      setEventoLlamadaId(evento.id); // ✅ SOLO ID
-      setModalLlamadaAbierto(true);
-    },
-    [modalLlamadaAbierto],
-  );
+
+    setEventoLlamada(evento);
+    setModalLlamadaAbierto(true);
+    llamadaActivaRef.current = true;
+  }, [modalLlamadaAbierto]);
+
 
   const llamarOperadorCb = useCallback(async (evento, opciones = {}) => {
     try {
@@ -762,16 +756,15 @@ export default function Casos() {
   ${casoCriticoSeleccionado ? "pointer-events-none" : ""}
     `}
     >
-      {modalLlamadaAbierto && eventoSeleccionado && (
-        <ModalLlamadaCabina
-          abierto={modalLlamadaAbierto}
-          evento={eventoSeleccionado}
-          onColgar={() => {
-            setModalLlamadaAbierto(false);
-            setEventoLlamadaId(null);
-          }}
-        />
-      )}
+      <ModalLlamadaCabina
+        abierto={modalLlamadaAbierto}
+        evento={eventoLlamada}
+        onColgar={() => {
+          llamadaActivaRef.current = null;
+          setModalLlamadaAbierto(false);
+          setEventoLlamada(null);
+        }}
+      />
       {casoCriticoSeleccionado && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 pointer-events-auto">
           <div className="bg-white rounded-lg w-[1000px] max-w-full max-h-[85vh] flex flex-col shadow mt-10">
