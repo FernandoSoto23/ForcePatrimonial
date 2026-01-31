@@ -99,7 +99,7 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
     abortRef.current = new AbortController();
 
     try {
-      await fetch("https://agentpatsec.onrender.com/llamar", {
+      await fetch("https://agentpatsec-a9l7.onrender.com/llamar", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
