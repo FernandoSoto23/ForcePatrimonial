@@ -12,24 +12,104 @@ function CasoActivoCard({
   MensajeExpandable,
   onLlamarCabina,
 }) {
+  const SLTA_LABEL = {
+    S: "Sucursal",
+    L: "Local",
+    T: "Taller",
+    A: "Agencia",
+  };
+
   const ultimoEvento = caso.eventos[0];
-  const panico = caso.esPanico;
+  const obtenerNombreZona = (geocercas_json) => {
+    if (!geocercas_json) return null;
+
+    try {
+      const data =
+        typeof geocercas_json === "string"
+          ? JSON.parse(geocercas_json)
+          : geocercas_json;
+
+      if (!Array.isArray(data.zones) || data.zones.length === 0) return null;
+
+      const z = data.zones[0];
+
+      // 👇 AQUÍ ESTÁ LA CLAVE
+      if (typeof z === "string") return z;
+      if (typeof z === "object") return z.name ?? z.nombre ?? null;
+
+      return null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+
+  // 👉 AQUÍ estaba lo que te faltaba
+  const zonaActual = obtenerNombreZona(ultimoEvento?.geocercas_json);
+
+  const esPanico =
+    (ultimoEvento?.tipoNorm || "").toUpperCase() === "PANICO";
+
+  const geocerca = ultimoEvento?.geocercaSLTA ?? null;
+
+  const textoGeocerca = geocerca
+    ? `${SLTA_LABEL[geocerca] ?? geocerca}${zonaActual ? ` · ${zonaActual}` : ""
+    }`
+    : null;
+
+  const enSucursal = geocerca === "S";
+
+  const borderClass = esPanico
+    ? "border-red-500 bg-red-50"
+    : enSucursal
+      ? "border-blue-400 bg-blue-50"
+      : "border-gray-300";
+
+  const esPanicoEnSucursal = esPanico && enSucursal;
+
 
   return (
     <div
       className={`
-        mb-1 rounded-md border transition shadow-sm bg-white
-        ${panico ? "border-red-400" : "border-gray-300"}
-        ${isSelected ? "ring-1 ring-gray-400" : ""}
-      `}
+    mb-1 rounded-md border transition shadow-sm
+    ${borderClass}
+    ${isSelected ? "ring-1 ring-gray-400" : ""}
+  `}
     >
       {/* FILA PRINCIPAL */}
       <div className="grid grid-cols-[1.6fr_1.4fr_auto_auto] items-center gap-4 px-3 py-2">
         {/* UNIDAD + TIPO */}
-        <div className="min-w-0">
+        {/* UNIDAD + TIPO */}
+        <div className="min-w-0 space-y-0.5">
           <div className="font-extrabold text-[13px] text-gray-900 truncate">
             {caso.unidad}
           </div>
+
+          {/* BADGES */}
+          <div className="flex flex-wrap items-center gap-1">
+            {esPanico && (
+              <span className="bg-red-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">
+                PÁNICO
+              </span>
+            )}
+
+            {textoGeocerca && (
+              <span
+                className={`text-[9px] px-2 py-0.5 rounded-full font-bold
+        ${esPanicoEnSucursal
+                    ? "bg-red-100 text-red-800 border border-red-300"
+                    : enSucursal
+                      ? "bg-blue-100 text-blue-800"
+                      : "bg-gray-100 text-gray-600"
+                  }
+      `}
+                title={zonaActual ?? ""}
+              >
+                📍 {textoGeocerca}
+              </span>
+            )}
+          </div>
+
 
           <div className="text-[11px] text-gray-600 truncate">
             {resumenReps(caso.repeticiones)}
