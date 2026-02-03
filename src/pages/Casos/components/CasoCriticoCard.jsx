@@ -15,6 +15,15 @@ function CasoCriticoCard({
     const ultimoEvento = caso.eventos[0];
     const panico = esPanico(caso);
 
+    const textoCombinacion = React.useMemo(() => {
+        if (!caso.repeticiones) return "";
+
+        return Object.entries(caso.repeticiones)
+            .sort((a, b) => b[1] - a[1]) // más frecuentes primero
+            .map(([tipo, total]) => `${tipo} (${total})`)
+            .join(" · ");
+    }, [caso.repeticiones]);
+
     return (
         <div
             className={`
@@ -35,8 +44,12 @@ function CasoCriticoCard({
                         {caso.unidad}
                     </div>
 
-                    <div className="text-[11px] text-red-700 font-semibold truncate">
-                        {caso.combinacion}
+                    <div
+                        className="text-[11px] text-red-700 font-semibold leading-snug
+             break-words whitespace-normal line-clamp-2"
+                        title={textoCombinacion}
+                    >
+                        {textoCombinacion}
                     </div>
                 </div>
 
