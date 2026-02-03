@@ -193,8 +193,8 @@ function CasoActivoCard({
         <div className="px-4 py-2 border-t bg-gray-50 text-[11px] space-y-2">
           {caso.eventos.map((e, i) => (
             <div key={`${e.id}-${i}`}>
-              <strong className="text-gray-900">{e.tipoNorm}</strong>
-              <MensajeExpandable mensaje={e.mensaje} />
+              <strong className="text-gray-900">{e.tipoNorm}: </strong>
+              {e.mensaje}
             </div>
           ))}
         </div>
