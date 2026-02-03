@@ -1,5 +1,7 @@
 import React from "react";
 import { ShieldAlert, ChevronDown } from "lucide-react";
+import Swal from "sweetalert2";
+import { getCodigoAgente } from "../../../utils/codigoAgente";
 
 function CasoCriticoCard({
     caso,
@@ -10,8 +12,10 @@ function CasoCriticoCard({
     esPanico,
     formatearFechaHoraCritica,
     MensajeExpandable,
-    onLlamarCabina
+    onLlamarCabina,
+    codigoAgente,
 }) {
+
     const ultimoEvento = caso.eventos[0];
     const panico = esPanico(caso);
 
@@ -70,7 +74,34 @@ function CasoCriticoCard({
                 <div className="flex gap-1">
                     <button
                         title="Llamar operador"
-                        onClick={() => onLlamarOperador(ultimoEvento)}
+                        onClick={async () => {
+                            const codigoAgente = getCodigoAgente();
+
+                            if (!codigoAgente) {
+                                Swal.fire({
+                                    icon: "warning",
+                                    title: "Código requerido",
+                                    text: "Debes ingresar el código del agente antes de realizar la llamada.",
+                                    confirmButtonText: "Entendido",
+                                });
+                                return;
+                            }
+
+                            const result = await Swal.fire({
+                                title: "Confirmar llamada",
+                                text: "¿Deseas realizar la llamada al operador?",
+                                icon: "question",
+                                showCancelButton: true,
+                                confirmButtonText: "Sí, llamar",
+                                cancelButtonText: "Cancelar",
+                                confirmButtonColor: "#2563eb", // azul
+                                cancelButtonColor: "#6b7280",  // gris
+                            });
+
+                            if (!result.isConfirmed) return;
+
+                            onLlamarOperador(ultimoEvento, { codigoAgente });
+                        }}
                         className="px-2 py-1 rounded bg-gray-100 text-gray-800 hover:bg-gray-200"
                     >
                         📞

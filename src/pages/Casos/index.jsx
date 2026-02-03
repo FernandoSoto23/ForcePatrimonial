@@ -6,7 +6,7 @@ import {
   useCallback,
   useReducer,
 } from "react";
-
+import { setCodigoAgente } from "../../utils/codigoAgente";
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import { useUnits } from "../../context/UnitsContext";
@@ -18,6 +18,7 @@ import EvaluacionOperativa from "./components/EvaluacionOperativa/EvaluacionOper
 import { tsCaso, esPanico } from "./utils/casos";
 import CasoActivoCard from "./components/CasoActivoCard";
 import CasoCriticoCard from "./components/CasoCriticoCard";
+import { PhoneIcon } from "@heroicons/react/24/solid"
 import {
   normalize,
   safeDecode,
@@ -170,8 +171,10 @@ export default function Casos() {
   const [detalleCierre, setDetalleCierre] = useState("");
   const [motivoCierre, setMotivoCierre] = useState("");
   const [observacionesCierre, setObservacionesCierre] = useState("");
+  const [codigoInput, setCodigoInput] = useState("");
   const [idCriticoFijo, setIdCriticoFijo] = useState(null);
-
+  const [mostrarCodigo, setMostrarCodigo] = useState(false);
+  const refPanel = useRef(null);
   const [usuario, setUsuario] = useState(null);
   const [mapaUnidad, setMapaUnidad] = useState(null);
   const [totalAlertas, setTotalAlertas] = useState(0);
@@ -751,255 +754,389 @@ export default function Casos() {
   }, [casoCriticoSeleccionado, casoSeleccionado, mapaUnidad]);
 
   return (
-    <div
-      className={`p-6 bg-gray-100 min-h-screen grid grid-cols-2 gap-6 text-black 
+    <div>
+      <button
+        onClick={() => setMostrarCodigo((v) => !v)}
+        title="Código del agente"
+        className="
+    fixed top-1/2 right-0 -translate-y-1/2
+    z-40
+
+    bg-gradient-to-b from-gray-900 to-black
+    text-blue-400
+
+    p-3
+    rounded-l-full
+
+    border border-gray-700
+    shadow-[0_0_18px_rgba(59,130,246,0.35)]
+
+    hover:shadow-[0_0_28px_rgba(59,130,246,0.55)]
+    hover:text-blue-300
+
+    transition-all duration-200 ease-out
+    flex items-center justify-center
+  "
+      >
+        <PhoneIcon className="w-5 h-5" />
+      </button>
+
+
+      {mostrarCodigo && (
+        <div
+          className="
+      fixed top-1/2 right-14 -translate-y-1/2
+      z-50
+      w-80
+
+      bg-gradient-to-b from-gray-900 to-gray-800
+      border border-gray-700
+      rounded-xl
+      shadow-[0_20px_40px_rgba(0,0,0,0.6)]
+
+      p-4
+      text-gray-100
+    "
+        >
+          {/* HEADER */}
+          <div className="mb-3">
+            <div className="text-xs uppercase tracking-widest text-blue-400">
+              Seguridad
+            </div>
+            <div className="text-sm font-semibold">
+              Código del agente
+            </div>
+          </div>
+
+          {/* INPUT */}
+          <input
+            type="text"
+            value={codigoInput}
+            onChange={(e) => setCodigoInput(e.target.value)}
+            placeholder="AGT-1234"
+            className="
+        w-full px-3 py-2 text-sm
+        rounded-md
+
+        bg-gray-950
+        border border-gray-700
+        text-gray-100
+        placeholder-gray-500
+
+        focus:outline-none
+        focus:ring-2 focus:ring-blue-500
+        focus:border-blue-500
+
+        transition
+      "
+          />
+
+          {/* FOOTER */}
+          <div className="flex justify-end gap-2 mt-4">
+            <button
+              onClick={() => setMostrarCodigo(false)}
+              className="
+          text-xs px-3 py-1.5 rounded-md
+          bg-gray-700 text-gray-200
+          hover:bg-gray-600
+          transition
+        "
+            >
+              Cancelar
+            </button>
+
+            <button
+              onClick={() => {
+                if (!codigoInput.trim()) {
+                  toast.error("Debes ingresar un código válido");
+                  return;
+                }
+
+                setCodigoAgente(codigoInput.trim());
+                setMostrarCodigo(false);
+                toast.success("Código del agente guardado por 8 horas");
+              }}
+              className="
+          flex items-center gap-2
+          text-xs font-semibold
+          px-4 py-1.5 rounded-md
+
+          bg-gradient-to-r from-blue-600 to-blue-500
+          text-white
+
+          shadow-md
+          hover:from-blue-500 hover:to-blue-400
+          hover:shadow-[0_0_12px_rgba(59,130,246,0.6)]
+
+          focus:outline-none
+          focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 focus:ring-offset-gray-900
+
+          transition-all
+        "
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 640 640"
+                className="w-4 h-4 fill-current"
+              >
+                <path d="M160 96C124.7 96 96 124.7 96 160L96 480C96 515.3 124.7 544 160 544L480 544C515.3 544 544 515.3 544 480L544 237.3C544 220.3 537.3 204 525.3 192L448 114.7C436 102.7 419.7 96 402.7 96L160 96zM192 192C192 174.3 206.3 160 224 160L384 160C401.7 160 416 174.3 416 192L416 256C416 273.7 401.7 288 384 288L224 288C206.3 288 192 273.7 192 256L192 192zM320 352C355.3 352 384 380.7 384 416C384 451.3 355.3 480 320 480C284.7 480 256 451.3 256 416C256 380.7 284.7 352 320 352z" />
+              </svg>
+              Guardar
+            </button>
+          </div>
+        </div>
+      )}
+
+
+
+
+      <div
+        className={`p-6 bg-gray-100 min-h-screen grid grid-cols-2 gap-6 text-black 
   ${casoCriticoSeleccionado ? "pointer-events-none" : ""}
     `}
-    >
-      <ModalLlamadaCabina
-        abierto={modalLlamadaAbierto}
-        evento={eventoLlamada}
-        onColgar={() => {
-          llamadaActivaRef.current = null;
-          setModalLlamadaAbierto(false);
-          setEventoLlamada(null);
-        }}
-      />
-      {casoCriticoSeleccionado && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 pointer-events-auto">
-          <div className="bg-white rounded-lg w-[1000px] max-w-full max-h-[85vh] flex flex-col shadow mt-10">
-            {/* ================= HEADER (FIJO) ================= */}
-            <div className="px-6 py-4 border-b flex justify-between items-start">
-              <div>
-                <h2 className="text-sm font-semibold text-gray-900">
-                  Caso crítico
-                </h2>
-                <p className="text-xs text-gray-500">
-                  Unidad {casoCriticoSeleccionado.unidad}
-                </p>
-              </div>
-
-              <button
-                onClick={() => setCasoCriticoSeleccionado(null)}
-                className="text-gray-500 hover:text-black"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* ================= BODY (SCROLL ÚNICO) ================= */}
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
-              {/* INFO GENERAL */}
-              <div className="text-xs text-gray-700 space-y-1">
+      >
+        <ModalLlamadaCabina
+          abierto={modalLlamadaAbierto}
+          evento={eventoLlamada}
+          onColgar={() => {
+            llamadaActivaRef.current = null;
+            setModalLlamadaAbierto(false);
+            setEventoLlamada(null);
+          }}
+        />
+        {casoCriticoSeleccionado && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 pointer-events-auto">
+            <div className="bg-white rounded-lg w-[1000px] max-w-full max-h-[85vh] flex flex-col shadow mt-10">
+              {/* ================= HEADER (FIJO) ================= */}
+              <div className="px-6 py-4 border-b flex justify-between items-start">
                 <div>
-                  <strong>Tipos involucrados:</strong>{" "}
-                  {casoCriticoSeleccionado.combinacion}
-                </div>
-                <div>
-                  <strong>Total de alertas:</strong>{" "}
-                  {casoCriticoSeleccionado.eventos.length}
-                </div>
-              </div>
-
-              {/* FILTRO */}
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-gray-700">
-                  Filtrar por tipo de alerta
+                  <h2 className="text-sm font-semibold text-gray-900">
+                    Caso crítico
+                  </h2>
+                  <p className="text-xs text-gray-500">
+                    Unidad {casoCriticoSeleccionado.unidad}
+                  </p>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setFiltroTipoAlerta("TODOS")}
-                    className={`px-3 py-1 rounded-full text-[11px] font-semibold border
-                ${
-                  filtroTipoAlerta === "TODOS"
-                    ? "bg-black text-white border-black"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                }`}
-                  >
-                    TODOS ({casoCriticoSeleccionado.eventos.length})
-                  </button>
-
-                  {tiposDisponibles.map((tipo) => (
-                    <button
-                      key={tipo}
-                      onClick={() => setFiltroTipoAlerta(tipo)}
-                      className={`px-3 py-1 rounded-full text-[11px] font-semibold border
-                  ${
-                    filtroTipoAlerta === tipo
-                      ? "bg-red-600 text-white border-red-600"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                  }`}
-                    >
-                      {tipo} ({conteoPorTipo[tipo]})
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* HISTORIAL */}
-              <div className="border rounded-md p-3 max-h-72 overflow-auto text-xs space-y-3">
-                {eventosFiltrados.map((e, i) => (
-                  <div key={i} className="border-b last:border-b-0 py-2">
-                    {/* LINEA 1 */}
-                    <div className="flex items-center justify-between gap-2 text-[11px]">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-semibold text-red-600 uppercase shrink-0">
-                          {normalize(e.tipo)}
-                        </span>
-
-                        {formatearFechaHora(e.mensaje) && (
-                          <span className="text-gray-500 shrink-0">
-                            {formatearFechaHora(e.mensaje).fecha} ·{" "}
-                            {formatearFechaHora(e.mensaje).hora}
-                          </span>
-                        )}
-
-                        {extraerVelocidad(e.mensaje) && (
-                          <span className="text-gray-500 shrink-0">
-                            {extraerVelocidad(e.mensaje)}
-                          </span>
-                        )}
-                      </div>
-
-                      <span className="text-[10px] text-gray-400 shrink-0">
-                        #{e.id}
-                      </span>
-                    </div>
-
-                    {/* LINEA 2 */}
-                    {extraerLugar(e.mensaje) && (
-                      <div className="text-[11px] text-gray-600 truncate">
-                        {extraerLugar(e.mensaje)}
-                      </div>
-                    )}
-
-                    {/* EXPANDIBLE */}
-                    <MensajeExpandable mensaje={e.mensaje} />
-
-                    {/* MAPA INLINE */}
-                    {extraerMapsUrl(e.mensaje) && (
-                      <a
-                        href={extraerMapsUrl(e.mensaje)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[10px] text-blue-600 hover:underline"
-                      >
-                        Ver ubicación
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* EVALUACIÓN OPERATIVA */}
-              <EvaluacionOperativa
-                value={evaluacionCritica}
-                onChange={setEvaluacionCritica}
-                contextoEvento={contextoEvento}
-              />
-
-              {/* CIERRE */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Motivo de cierre <span className="text-red-500">*</span>
-                </label>
-
-                <select
-                  value={motivoCierre}
-                  onChange={(e) => setMotivoCierre(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md p-2 text-xs bg-white"
+                <button
+                  onClick={() => setCasoCriticoSeleccionado(null)}
+                  className="text-gray-500 hover:text-black"
                 >
-                  <option value="">Selecciona un motivo</option>
-                  {MOTIVOS_CIERRE.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-
-                {motivoCierre === "OTRO" && (
-                  <textarea
-                    value={observacionesCierre}
-                    onChange={(e) => setObservacionesCierre(e.target.value)}
-                    rows={3}
-                    className="mt-2 w-full border border-gray-300 rounded-md p-2 text-xs"
-                    placeholder="Describe brevemente el motivo"
-                  />
-                )}
+                  ✕
+                </button>
               </div>
-            </div>
 
-            {/* ================= FOOTER (FIJO) ================= */}
-            <div className="border-t px-6 py-3 flex justify-end gap-2 bg-gray-50">
-              <button
-                onClick={() => {
-                  resetearProtocolos();
-                  setMotivoCierre("");
-                  setObservacionesCierre("");
-                  setCasoCriticoSeleccionado(null);
-                }}
-                className="text-xs bg-gray-200 px-4 py-1 rounded"
-              >
-                Cancelar
-              </button>
+              {/* ================= BODY (SCROLL ÚNICO) ================= */}
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+                {/* INFO GENERAL */}
+                <div className="text-xs text-gray-700 space-y-1">
+                  <div>
+                    <strong>Tipos involucrados:</strong>{" "}
+                    {casoCriticoSeleccionado.combinacion}
+                  </div>
+                  <div>
+                    <strong>Total de alertas:</strong>{" "}
+                    {casoCriticoSeleccionado.eventos.length}
+                  </div>
+                </div>
 
-              <button
-                onClick={async () => {
-                  // 🚫 1) VALIDAR MOTIVO
-                  if (!motivoCierre) {
-                    toast.error("Debes seleccionar un motivo de cierre");
-                    return;
-                  }
+                {/* FILTRO */}
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-gray-700">
+                    Filtrar por tipo de alerta
+                  </div>
 
-                  // 🚫 2) VALIDAR EVALUACIÓN
-                  const faltantes = preguntasActuales.filter(
-                    (p) => !evaluacionCritica[p.key],
-                  );
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setFiltroTipoAlerta("TODOS")}
+                      className={`px-3 py-1 rounded-full text-[11px] font-semibold border
+                ${filtroTipoAlerta === "TODOS"
+                          ? "bg-black text-white border-black"
+                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                        }`}
+                    >
+                      TODOS ({casoCriticoSeleccionado.eventos.length})
+                    </button>
 
-                  if (faltantes.length > 0) {
-                    toast.error("Debes completar toda la evaluación operativa");
-                    return;
-                  }
+                    {tiposDisponibles.map((tipo) => (
+                      <button
+                        key={tipo}
+                        onClick={() => setFiltroTipoAlerta(tipo)}
+                        className={`px-3 py-1 rounded-full text-[11px] font-semibold border
+                  ${filtroTipoAlerta === tipo
+                            ? "bg-red-600 text-white border-red-600"
+                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                          }`}
+                      >
+                        {tipo} ({conteoPorTipo[tipo]})
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                  const result = await Swal.fire({
-                    title: "Cerrar caso crítico",
-                    html: `
+                {/* HISTORIAL */}
+                <div className="border rounded-md p-3 max-h-72 overflow-auto text-xs space-y-3">
+                  {eventosFiltrados.map((e, i) => (
+                    <div key={i} className="border-b last:border-b-0 py-2">
+                      {/* LINEA 1 */}
+                      <div className="flex items-center justify-between gap-2 text-[11px]">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-semibold text-red-600 uppercase shrink-0">
+                            {normalize(e.tipo)}
+                          </span>
+
+                          {formatearFechaHora(e.mensaje) && (
+                            <span className="text-gray-500 shrink-0">
+                              {formatearFechaHora(e.mensaje).fecha} ·{" "}
+                              {formatearFechaHora(e.mensaje).hora}
+                            </span>
+                          )}
+
+                          {extraerVelocidad(e.mensaje) && (
+                            <span className="text-gray-500 shrink-0">
+                              {extraerVelocidad(e.mensaje)}
+                            </span>
+                          )}
+                        </div>
+
+                        <span className="text-[10px] text-gray-400 shrink-0">
+                          #{e.id}
+                        </span>
+                      </div>
+
+                      {/* LINEA 2 */}
+                      {extraerLugar(e.mensaje) && (
+                        <div className="text-[11px] text-gray-600 truncate">
+                          {extraerLugar(e.mensaje)}
+                        </div>
+                      )}
+
+                      {/* EXPANDIBLE */}
+                      <MensajeExpandable mensaje={e.mensaje} />
+
+                      {/* MAPA INLINE */}
+                      {extraerMapsUrl(e.mensaje) && (
+                        <a
+                          href={extraerMapsUrl(e.mensaje)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-blue-600 hover:underline"
+                        >
+                          Ver ubicación
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* EVALUACIÓN OPERATIVA */}
+                <EvaluacionOperativa
+                  value={evaluacionCritica}
+                  onChange={setEvaluacionCritica}
+                  contextoEvento={contextoEvento}
+                />
+
+                {/* CIERRE */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Motivo de cierre <span className="text-red-500">*</span>
+                  </label>
+
+                  <select
+                    value={motivoCierre}
+                    onChange={(e) => setMotivoCierre(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md p-2 text-xs bg-white"
+                  >
+                    <option value="">Selecciona un motivo</option>
+                    {MOTIVOS_CIERRE.map((m) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  {motivoCierre === "OTRO" && (
+                    <textarea
+                      value={observacionesCierre}
+                      onChange={(e) => setObservacionesCierre(e.target.value)}
+                      rows={3}
+                      className="mt-2 w-full border border-gray-300 rounded-md p-2 text-xs"
+                      placeholder="Describe brevemente el motivo"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* ================= FOOTER (FIJO) ================= */}
+              <div className="border-t px-6 py-3 flex justify-end gap-2 bg-gray-50">
+                <button
+                  onClick={() => {
+                    resetearProtocolos();
+                    setMotivoCierre("");
+                    setObservacionesCierre("");
+                    setCasoCriticoSeleccionado(null);
+                  }}
+                  className="text-xs bg-gray-200 px-4 py-1 rounded"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  onClick={async () => {
+                    // 🚫 1) VALIDAR MOTIVO
+                    if (!motivoCierre) {
+                      toast.error("Debes seleccionar un motivo de cierre");
+                      return;
+                    }
+
+                    // 🚫 2) VALIDAR EVALUACIÓN
+                    const faltantes = preguntasActuales.filter(
+                      (p) => !evaluacionCritica[p.key],
+                    );
+
+                    if (faltantes.length > 0) {
+                      toast.error("Debes completar toda la evaluación operativa");
+                      return;
+                    }
+
+                    const result = await Swal.fire({
+                      title: "Cerrar caso crítico",
+                      html: `
         <p>Estás a punto de cerrar un <b>caso crítico</b>.</p>
         <p>Esta acción cerrará <b>todas las alertas asociadas</b>.</p>
       `,
-                    icon: "warning",
-                    showCancelButton: true,
-                    confirmButtonText: "Sí, cerrar caso",
-                    cancelButtonText: "Cancelar",
-                    confirmButtonColor: "#dc2626",
-                    cancelButtonColor: "#6b7280",
-                  });
+                      icon: "warning",
+                      showCancelButton: true,
+                      confirmButtonText: "Sí, cerrar caso",
+                      cancelButtonText: "Cancelar",
+                      confirmButtonColor: "#dc2626",
+                      cancelButtonColor: "#6b7280",
+                    });
 
-                  if (!result.isConfirmed) return;
+                    if (!result.isConfirmed) return;
 
-                  const idUsuario =
-                    usuario?.id_usuario ?? usuario?.id ?? usuario?.sub;
-                  const nombreUsuario = usuario?.nombre ?? usuario?.name;
+                    const idUsuario =
+                      usuario?.id_usuario ?? usuario?.id ?? usuario?.sub;
+                    const nombreUsuario = usuario?.nombre ?? usuario?.name;
 
-                  if (!idUsuario || !nombreUsuario) {
-                    toast.error("Usuario inválido, no se puede cerrar el caso");
-                    return;
-                  }
+                    if (!idUsuario || !nombreUsuario) {
+                      toast.error("Usuario inválido, no se puede cerrar el caso");
+                      return;
+                    }
 
-                  try {
-                    const resp = await fetch(
-                      `${API_URL}/alertas/cerrar-multiples`,
-                      {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          alertas: casoCriticoSeleccionado.eventos.map(
-                            (e) => e.id,
-                          ),
-                          id_usuario: idUsuario,
-                          nombre_usuario: nombreUsuario,
-                          detalle_cierre: `
+                    try {
+                      const resp = await fetch(
+                        `${API_URL}/alertas/cerrar-multiples`,
+                        {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            alertas: casoCriticoSeleccionado.eventos.map(
+                              (e) => e.id,
+                            ),
+                            id_usuario: idUsuario,
+                            nombre_usuario: nombreUsuario,
+                            detalle_cierre: `
 Motivo: ${motivoCierre}
 ${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
 
@@ -1010,267 +1147,265 @@ Cierre realizado por: ${nombreUsuario}
 Fecha cierre: ${new Date().toLocaleString()}
 Unidad: ${casoCriticoSeleccionado.unidad}
 `.trim(),
-                        }),
-                      },
-                    );
+                          }),
+                        },
+                      );
 
-                    if (!resp.ok) {
-                      const errorText = await resp.text();
-                      throw new Error(errorText);
+                      if (!resp.ok) {
+                        const errorText = await resp.text();
+                        throw new Error(errorText);
+                      }
+
+                      cerrarModalYEliminarCaso(casoCriticoSeleccionado.id);
+                      toast.success("✅ Caso crítico cerrado correctamente");
+                    } catch (error) {
+                      console.error("❌ Error cerrando caso crítico:", error);
+                      toast.error("No se pudo cerrar el caso crítico");
                     }
-
-                    cerrarModalYEliminarCaso(casoCriticoSeleccionado.id);
-                    toast.success("✅ Caso crítico cerrado correctamente");
-                  } catch (error) {
-                    console.error("❌ Error cerrando caso crítico:", error);
-                    toast.error("No se pudo cerrar el caso crítico");
+                  }}
+                  disabled={
+                    !motivoCierre ||
+                    (motivoCierre === "OTRO" &&
+                      observacionesCierre.trim().length < 10)
                   }
-                }}
-                disabled={
-                  !motivoCierre ||
-                  (motivoCierre === "OTRO" &&
-                    observacionesCierre.trim().length < 10)
-                }
-                className={`text-xs px-4 py-1 rounded text-white
-    ${
-      !motivoCierre ||
-      (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
-        ? "bg-gray-400 cursor-not-allowed"
-        : "bg-red-600 hover:bg-red-700"
-    }`}
-              >
-                Cerrar caso crítico
-              </button>
+                  className={`text-xs px-4 py-1 rounded text-white
+    ${!motivoCierre ||
+                      (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-red-600 hover:bg-red-700"
+                    }`}
+                >
+                  Cerrar caso crítico
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {casoSeleccionado && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-[500px] max-w-full p-5 shadow-sm">
-            <div className="flex justify-between items-center mb-3">
-              <div>
-                <div className="text-xs text-gray-500">Unidad</div>
-                <div className="font-bold">{casoSeleccionado.unidad}</div>
+        {casoSeleccionado && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg w-[500px] max-w-full p-5 shadow-sm">
+              <div className="flex justify-between items-center mb-3">
+                <div>
+                  <div className="text-xs text-gray-500">Unidad</div>
+                  <div className="font-bold">{casoSeleccionado.unidad}</div>
+                </div>
+                <div className="mt-3">
+                  <label className="block text-[11px] text-gray-500 mb-1">
+                    Monitorista asignado
+                  </label>
+
+                  <p className="text-sm font-medium text-gray-800">
+                    {usuario.name || "—"}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setCasoSeleccionado(null)}
+                  className="text-gray-500 hover:text-black"
+                >
+                  ✕
+                </button>
               </div>
-              <div className="mt-3">
-                <label className="block text-[11px] text-gray-500 mb-1">
-                  Monitorista asignado
+
+              <div className="text-xs text-gray-700 space-y-1">
+                <div>
+                  <strong>Estado actual:</strong> {casoSeleccionado.estado}
+                </div>
+                <div>
+                  <strong>Tipos:</strong>{" "}
+                  {resumenReps(casoSeleccionado.repeticiones)}
+                </div>
+              </div>
+
+              <div className="mt-3 border-t pt-3 text-xs text-gray-800">
+                <strong>Último mensaje:</strong>
+                <MensajeExpandable
+                  mensaje={casoSeleccionado.eventos[0].mensaje}
+                />
+              </div>
+
+              {extraerMapsUrl(casoSeleccionado.eventos[0].mensaje) && (
+                <a
+                  href={extraerMapsUrl(casoSeleccionado.eventos[0].mensaje)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block mt-2 text-[11px] text-gray-600 underline"
+                >
+                  Ver ubicación en Google Maps
+                </a>
+              )}
+              {/* 📝 CIERRE DE ALERTA */}
+              <div className="mt-4">
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Motivo de cierre <span className="text-red-500">*</span>
                 </label>
 
-                <p className="text-sm font-medium text-gray-800">
-                  {usuario.name || "—"}
-                </p>
+                <select
+                  value={motivoCierre}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setMotivoCierre(value);
+
+                    const motivo = MOTIVOS_CIERRE_ALERTA.find(
+                      (m) => m.value === value,
+                    );
+
+                    if (motivo) {
+                      setDetalleCierre(motivo.body);
+                    }
+                  }}
+                  className="w-full border border-gray-300 rounded-md p-2 text-xs bg-white"
+                >
+                  <option value="">Selecciona un motivo</option>
+                  {MOTIVOS_CIERRE_ALERTA.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+
+                {motivoCierre === "OTRO" && (
+                  <textarea
+                    value={detalleCierre}
+                    onChange={(e) => setDetalleCierre(e.target.value)}
+                    rows={3}
+                    placeholder="Describe brevemente el motivo"
+                    className="mt-2 w-full border border-gray-300 rounded-md p-2 text-xs"
+                  />
+                )}
               </div>
 
-              <button
-                onClick={() => setCasoSeleccionado(null)}
-                className="text-gray-500 hover:text-black"
-              >
-                ✕
-              </button>
-            </div>
+              {/* ACCIONES */}
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  onClick={() => setCasoSeleccionado(null)}
+                  className="text-xs bg-gray-300 px-3 py-1 rounded"
+                >
+                  Mantener abierto
+                </button>
 
-            <div className="text-xs text-gray-700 space-y-1">
-              <div>
-                <strong>Estado actual:</strong> {casoSeleccionado.estado}
-              </div>
-              <div>
-                <strong>Tipos:</strong>{" "}
-                {resumenReps(casoSeleccionado.repeticiones)}
-              </div>
-            </div>
-
-            <div className="mt-3 border-t pt-3 text-xs text-gray-800">
-              <strong>Último mensaje:</strong>
-              <MensajeExpandable
-                mensaje={casoSeleccionado.eventos[0].mensaje}
-              />
-            </div>
-
-            {extraerMapsUrl(casoSeleccionado.eventos[0].mensaje) && (
-              <a
-                href={extraerMapsUrl(casoSeleccionado.eventos[0].mensaje)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block mt-2 text-[11px] text-gray-600 underline"
-              >
-                Ver ubicación en Google Maps
-              </a>
-            )}
-            {/* 📝 CIERRE DE ALERTA */}
-            <div className="mt-4">
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Motivo de cierre <span className="text-red-500">*</span>
-              </label>
-
-              <select
-                value={motivoCierre}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setMotivoCierre(value);
-
-                  const motivo = MOTIVOS_CIERRE_ALERTA.find(
-                    (m) => m.value === value,
-                  );
-
-                  if (motivo) {
-                    setDetalleCierre(motivo.body);
-                  }
-                }}
-                className="w-full border border-gray-300 rounded-md p-2 text-xs bg-white"
-              >
-                <option value="">Selecciona un motivo</option>
-                {MOTIVOS_CIERRE_ALERTA.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-
-              {motivoCierre === "OTRO" && (
-                <textarea
-                  value={detalleCierre}
-                  onChange={(e) => setDetalleCierre(e.target.value)}
-                  rows={3}
-                  placeholder="Describe brevemente el motivo"
-                  className="mt-2 w-full border border-gray-300 rounded-md p-2 text-xs"
-                />
-              )}
-            </div>
-
-            {/* ACCIONES */}
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                onClick={() => setCasoSeleccionado(null)}
-                className="text-xs bg-gray-300 px-3 py-1 rounded"
-              >
-                Mantener abierto
-              </button>
-
-              <button
-                onClick={async () => {
-                  // 🚫 1) VALIDACIÓN FUERTE
-                  if (!motivoCierre) {
-                    toast.error("Debes seleccionar un motivo de cierre");
-                    return;
-                  }
-
-                  if (
-                    motivoCierre === "OTRO" &&
-                    detalleCierre.trim().length < 10
-                  ) {
-                    toast.error("Debes escribir una observación válida");
-                    return;
-                  }
-
-                  const confirmar = window.confirm(
-                    "¿Te gustaría cambiar el estado de esta alerta?",
-                  );
-
-                  if (!confirmar) return;
-
-                  try {
-                    // ✅ 2) BACKEND PRIMERO
-                    const resp = await fetch(`${API_URL}/alertas/cerrar`, {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify({
-                        id_alerta: casoSeleccionado.eventos[0].id,
-                        id_usuario: usuario.id,
-                        nombre_usuario: usuario.name,
-                        detalle_cierre: detalleCierre, // ✅ AQUÍ VA LA NOTA
-                      }),
-                    });
-
-                    if (!resp.ok) {
-                      const errorText = await resp.text();
-                      throw new Error(errorText || "Error cerrando alerta");
+                <button
+                  onClick={async () => {
+                    // 🚫 1) VALIDACIÓN FUERTE
+                    if (!motivoCierre) {
+                      toast.error("Debes seleccionar un motivo de cierre");
+                      return;
                     }
 
-                    // ✅ 3) ACTUALIZAR ESTADO LOCAL SOLO SI BACKEND OK
-                    cerrarModalYEliminarCaso(String(casoSeleccionado.id));
-                    toast.success(
-                      `La alerta ${casoSeleccionado.eventos[0].tipo} fue cerrada correctamente`,
+                    if (
+                      motivoCierre === "OTRO" &&
+                      detalleCierre.trim().length < 10
+                    ) {
+                      toast.error("Debes escribir una observación válida");
+                      return;
+                    }
+
+                    const confirmar = window.confirm(
+                      "¿Te gustaría cambiar el estado de esta alerta?",
                     );
-                  } catch (error) {
-                    console.error("❌ Error cerrando alerta:", error);
-                    toast.error(
-                      "No se pudo cerrar la alerta. Intenta nuevamente.",
-                    );
+
+                    if (!confirmar) return;
+
+                    try {
+                      // ✅ 2) BACKEND PRIMERO
+                      const resp = await fetch(`${API_URL}/alertas/cerrar`, {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                          id_alerta: casoSeleccionado.eventos[0].id,
+                          id_usuario: usuario.id,
+                          nombre_usuario: usuario.name,
+                          detalle_cierre: detalleCierre, // ✅ AQUÍ VA LA NOTA
+                        }),
+                      });
+
+                      if (!resp.ok) {
+                        const errorText = await resp.text();
+                        throw new Error(errorText || "Error cerrando alerta");
+                      }
+
+                      // ✅ 3) ACTUALIZAR ESTADO LOCAL SOLO SI BACKEND OK
+                      cerrarModalYEliminarCaso(String(casoSeleccionado.id));
+                      toast.success(
+                        `La alerta ${casoSeleccionado.eventos[0].tipo} fue cerrada correctamente`,
+                      );
+                    } catch (error) {
+                      console.error("❌ Error cerrando alerta:", error);
+                      toast.error(
+                        "No se pudo cerrar la alerta. Intenta nuevamente.",
+                      );
+                    }
+                  }}
+                  disabled={
+                    !motivoCierre ||
+                    (motivoCierre === "OTRO" && detalleCierre.trim().length < 10)
                   }
-                }}
-                disabled={
-                  !motivoCierre ||
-                  (motivoCierre === "OTRO" && detalleCierre.trim().length < 10)
-                }
-                className={`text-xs px-3 py-1 rounded text-white
-      ${
-        detalleCierre.trim().length < 50
-          ? "bg-gray-400 cursor-not-allowed"
-          : "bg-green-600 hover:bg-green-700"
-      }
+                  className={`text-xs px-3 py-1 rounded text-white
+      ${detalleCierre.trim().length < 50
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-green-600 hover:bg-green-700"
+                    }
     `}
-              >
-                Cerrar caso
-              </button>
+                >
+                  Cerrar caso
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <audio ref={sirena} src="/sounds/sirena.mp3" preload="auto" loop />
+        <audio ref={sirena} src="/sounds/sirena.mp3" preload="auto" loop />
 
-      {/* ACTIVOS */}
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-3 h-[calc(100vh-140px)] flex flex-col">
-        <div className="flex justify-between mb-4 items-center">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-gray-900">Alertas</h2>
-            <ResumenCargaAlertas
-              totalAlertas={totalAlertas}
-              alertasFiltradas={alertasFiltradas}
-              alertasProcesadas={alertasProcesadas}
-              cargaTerminada={cargaTerminada}
-            />
+        {/* ACTIVOS */}
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-3 h-[calc(100vh-140px)] flex flex-col">
+          <div className="flex justify-between mb-4 items-center">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-gray-900">Alertas</h2>
+              <ResumenCargaAlertas
+                totalAlertas={totalAlertas}
+                alertasFiltradas={alertasFiltradas}
+                alertasProcesadas={alertasProcesadas}
+                cargaTerminada={cargaTerminada}
+              />
 
-            <span className="bg-emerald-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
-              {activos.length}
-            </span>
+              <span className="bg-emerald-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+                {activos.length}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto pr-2">
+            {activos.map((c) => (
+              <CasoActivoCard
+                key={c.id}
+                caso={c}
+                isSelected={casoSeleccionado?.id === c.id}
+                onToggle={toggleCaso}
+                onAnalizar={analizarCaso}
+                onMapa={verMapa}
+                onLlamarOperador={llamarOperadorCb}
+                resumenReps={resumenReps}
+                esPanico={esPanico}
+                extraerZonas={extraerZonas}
+                normalize={normalize}
+                formatearFechaHora={formatearFechaHora}
+                extraerLugar={extraerLugar}
+                extraerVelocidad={extraerVelocidad}
+                extraerMapsUrl={extraerMapsUrl}
+                MensajeExpandable={MensajeExpandable}
+              />
+            ))}
+
+            {activos.length === 0 && (
+              <div className="text-sm text-gray-500">Sin alertas activas.</div>
+            )}
           </div>
         </div>
-
-        <div className="flex-1 overflow-y-auto pr-2">
-          {activos.map((c) => (
-            <CasoActivoCard
-              key={c.id}
-              caso={c}
-              isSelected={casoSeleccionado?.id === c.id}
-              onToggle={toggleCaso}
-              onAnalizar={analizarCaso}
-              onMapa={verMapa}
-              onLlamarOperador={llamarOperadorCb}
-              resumenReps={resumenReps}
-              esPanico={esPanico}
-              extraerZonas={extraerZonas}
-              normalize={normalize}
-              formatearFechaHora={formatearFechaHora}
-              extraerLugar={extraerLugar}
-              extraerVelocidad={extraerVelocidad}
-              extraerMapsUrl={extraerMapsUrl}
-              MensajeExpandable={MensajeExpandable}
-            />
-          ))}
-
-          {activos.length === 0 && (
-            <div className="text-sm text-gray-500">Sin alertas activas.</div>
-          )}
-        </div>
-      </div>
-      {/* IA CONVERSACIONAL */}
-      {/*       <div className="mt-4 border rounded p-3 bg-gray-50">
+        {/* IA CONVERSACIONAL */}
+        {/*       <div className="mt-4 border rounded p-3 bg-gray-50">
           <div className="text-xs font-bold mb-2">
             🤖 Conversación con operador
           </div>
@@ -1282,90 +1417,91 @@ Unidad: ${casoCriticoSeleccionado.unidad}
           ))}
         </div>
   */}
-      {/* CRÍTICOS */}
-      <div className="bg-red-50 rounded-xl shadow p-4 border border-red-300 h-[calc(100vh-140px)] flex flex-col">
-        <div className="flex justify-between mb-4 items-center">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-semibold text-red-700">
-              🔥 Alertas Críticas
-            </h2>
-            <span
-              className={`text-xs font-bold px-2 py-0.5 rounded-full text-white
+        {/* CRÍTICOS */}
+        <div className="bg-red-50 rounded-xl shadow p-4 border border-red-300 h-[calc(100vh-140px)] flex flex-col">
+          <div className="flex justify-between mb-4 items-center">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-semibold text-red-700">
+                🔥 Alertas Críticas
+              </h2>
+              <span
+                className={`text-xs font-bold px-2 py-0.5 rounded-full text-white
         ${criticos.length > 0 ? "bg-red-600 animate-pulse" : "bg-red-400"}
       `}
-            >
-              {criticos.length}
-            </span>
+              >
+                {criticos.length}
+              </span>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto pr-2">
+            {criticos.map((c) => (
+              <div
+                key={c.id}
+                ref={(el) => {
+                  if (el) criticosRefs.current[c.id] = el;
+                }}
+              >
+                <CasoCriticoCard
+                  key={c.id}
+                  caso={c}
+                  isSelected={idCriticoFijo === c.id}
+                  hayCriticoFijo={!!idCriticoFijo}
+                  onProtocolo={(caso) => {
+                    setIdCriticoFijo(caso.id); // 🔒 ANCLA
+                    setCasoCriticoSeleccionado(caso); // abre modal
+                  }}
+                  onAnalizar={analizarCaso}
+                  onMapa={verMapa}
+                  onLlamarOperador={llamarOperadorCb}
+                  esPanico={esPanico}
+                  extraerZonas={extraerZonas}
+                  formatearFechaHoraCritica={formatearFechaHoraCritica}
+                  extraerLugar={extraerLugar}
+                  extraerVelocidad={extraerVelocidad}
+                  extraerMapsUrl={extraerMapsUrl}
+                  MensajeExpandable={MensajeExpandable}
+                  onLlamarCabina={llamarCabina}
+                />
+              </div>
+            ))}
+
+            {criticos.length === 0 && (
+              <div className="text-sm text-red-700/70">
+                Sin alertas críticas por el momento.
+              </div>
+            )}
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto pr-2">
-          {criticos.map((c) => (
-            <div
-              key={c.id}
-              ref={(el) => {
-                if (el) criticosRefs.current[c.id] = el;
-              }}
-            >
-              <CasoCriticoCard
-                key={c.id}
-                caso={c}
-                isSelected={idCriticoFijo === c.id}
-                hayCriticoFijo={!!idCriticoFijo}
-                onProtocolo={(caso) => {
-                  setIdCriticoFijo(caso.id); // 🔒 ANCLA
-                  setCasoCriticoSeleccionado(caso); // abre modal
-                }}
-                onAnalizar={analizarCaso}
-                onMapa={verMapa}
-                onLlamarOperador={llamarOperadorCb}
-                esPanico={esPanico}
-                extraerZonas={extraerZonas}
-                formatearFechaHoraCritica={formatearFechaHoraCritica}
-                extraerLugar={extraerLugar}
-                extraerVelocidad={extraerVelocidad}
-                extraerMapsUrl={extraerMapsUrl}
-                MensajeExpandable={MensajeExpandable}
-                onLlamarCabina={llamarCabina}
-              />
-            </div>
-          ))}
+        {/* 🗺 MODAL MAPA UNIDAD */}
+        {mapaUnidad && (
+          <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center">
+            <div className="bg-white rounded-xl w-[900px] h-[600px] shadow relative">
+              {/* HEADER */}
+              <div className="flex items-center justify-between px-4 py-2 border-b">
+                <div className="text-sm font-bold">
+                  📍 Ubicación en tiempo real — {mapaUnidad.unidad}
+                </div>
 
-          {criticos.length === 0 && (
-            <div className="text-sm text-red-700/70">
-              Sin alertas críticas por el momento.
-            </div>
-          )}
-        </div>
-      </div>
-      {/* 🗺 MODAL MAPA UNIDAD */}
-      {mapaUnidad && (
-        <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center">
-          <div className="bg-white rounded-xl w-[900px] h-[600px] shadow relative">
-            {/* HEADER */}
-            <div className="flex items-center justify-between px-4 py-2 border-b">
-              <div className="text-sm font-bold">
-                📍 Ubicación en tiempo real — {mapaUnidad.unidad}
+                <button
+                  onClick={() => setMapaUnidad(null)}
+                  className="text-gray-500 hover:text-black text-lg"
+                >
+                  ✕
+                </button>
               </div>
 
-              <button
-                onClick={() => setMapaUnidad(null)}
-                className="text-gray-500 hover:text-black text-lg"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* MAPA */}
-            <div className="w-full h-[calc(100%-40px)]">
-              <MapaUnidadLive
-                key={mapaUnidad.unitId} // 🔥 OBLIGATORIO
-                unitId={mapaUnidad.unitId}
-                alerta={mapaUnidad.alerta}
-              />
+              {/* MAPA */}
+              <div className="w-full h-[calc(100%-40px)]">
+                <MapaUnidadLive
+                  key={mapaUnidad.unitId} // 🔥 OBLIGATORIO
+                  unitId={mapaUnidad.unitId}
+                  alerta={mapaUnidad.alerta}
+                />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

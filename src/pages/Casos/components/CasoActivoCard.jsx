@@ -11,6 +11,7 @@ function CasoActivoCard({
   resumenReps,
   MensajeExpandable,
   onLlamarCabina,
+  codigoAgente, 
 }) {
   const SLTA_LABEL = {
     S: "Sucursal",
