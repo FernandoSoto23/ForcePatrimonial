@@ -1,6 +1,7 @@
 import React from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
-
+import Swal from "sweetalert2";
+import { getCodigoAgente } from "../../../utils/codigoAgente";
 function CasoActivoCard({
   caso,
   isSelected,
@@ -11,7 +12,7 @@ function CasoActivoCard({
   resumenReps,
   MensajeExpandable,
   onLlamarCabina,
-  codigoAgente, 
+  codigoAgente,
 }) {
   const SLTA_LABEL = {
     S: "Sucursal",
@@ -68,6 +69,23 @@ function CasoActivoCard({
 
   const esPanicoEnSucursal = esPanico && enSucursal;
 
+
+
+
+  const manejarLlamadaCabina = async () => {
+    const codigo = getCodigoAgente();
+    if (!codigo) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Código requerido",
+        text: "Debes ingresar el código del agente antes de realizar la llamada.",
+        confirmButtonText: "Entendido",
+      });
+      return;
+    }
+
+    onLlamarCabina(ultimoEvento, { codigoAgente: codigo });
+  };
 
   return (
     <div
@@ -150,7 +168,7 @@ function CasoActivoCard({
  */}
           <button
             title="Llamada a cabina"
-            onClick={() => onLlamarCabina(ultimoEvento)}
+            onClick={manejarLlamadaCabina}
             className="px-2 py-1 rounded bg-green-100 text-green-800 hover:bg-green-200"
           >
             <svg

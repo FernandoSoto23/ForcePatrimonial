@@ -11,7 +11,7 @@ export function setCodigoAgente(codigo) {
 }
 
 export const getCodigoAgente = () => {
-  const match = document.cookie.match(/codigoAgente=([^;]+)/);
+  const match = document.cookie.match(/codigo_agente=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : null;
 };
 

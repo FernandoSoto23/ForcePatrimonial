@@ -6,7 +6,7 @@ import {
   useCallback,
   useReducer,
 } from "react";
-import { setCodigoAgente } from "../../utils/codigoAgente";
+import { getCodigoAgente, setCodigoAgente } from "../../utils/codigoAgente";
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import { useUnits } from "../../context/UnitsContext";
@@ -583,6 +583,15 @@ export default function Casos() {
   useEffect(() => {
     conectarTwilio();
   }, [conectarTwilio]);
+
+  useEffect(() => {
+    const codigoGuardado = getCodigoAgente();
+
+    if (codigoGuardado) {
+      setCodigoInput(codigoGuardado);
+    }
+  }, []);
+
 
   useEffect(() => {
     if (!idCriticoFijo) return;
@@ -1396,6 +1405,7 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                 extraerVelocidad={extraerVelocidad}
                 extraerMapsUrl={extraerMapsUrl}
                 MensajeExpandable={MensajeExpandable}
+                onLlamarCabina={llamarCabina}   // ✅ ESTA ES LA CLAVE
               />
             ))}
 

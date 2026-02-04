@@ -28,6 +28,24 @@ function CasoCriticoCard({
             .join(" · ");
     }, [caso.repeticiones]);
 
+
+    const manejarLlamadaCabina = async () => {
+        const codigo = codigoAgente ?? getCodigoAgente();
+
+        if (!codigo) {
+            await Swal.fire({
+                icon: "warning",
+                title: "Código requerido",
+                text: "Debes ingresar el código del agente antes de realizar la llamada.",
+                confirmButtonText: "Entendido",
+            });
+            return;
+        }
+
+        onLlamarCabina(ultimoEvento, { codigoAgente: codigo });
+    };
+
+
     return (
         <div
             className={`
@@ -72,7 +90,7 @@ function CasoCriticoCard({
 
                 {/* ACCIONES (ESTANDARIZADAS) */}
                 <div className="flex gap-1">
-{/*                     <button
+                    {/*                     <button
                         title="Llamar operador"
                         onClick={async () => {
                             const codigoAgente = getCodigoAgente();
@@ -108,7 +126,7 @@ function CasoCriticoCard({
                     </button> */}
                     <button
                         title="Llamada a cabina"
-                        onClick={() => onLlamarCabina(ultimoEvento)}
+                        onClick={manejarLlamadaCabina}
                         className="px-2 py-1 rounded bg-green-100 text-green-800 hover:bg-green-200"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
