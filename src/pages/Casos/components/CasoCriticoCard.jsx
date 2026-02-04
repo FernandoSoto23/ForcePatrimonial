@@ -72,7 +72,7 @@ function CasoCriticoCard({
 
                 {/* ACCIONES (ESTANDARIZADAS) */}
                 <div className="flex gap-1">
-                    <button
+{/*                     <button
                         title="Llamar operador"
                         onClick={async () => {
                             const codigoAgente = getCodigoAgente();
@@ -105,7 +105,7 @@ function CasoCriticoCard({
                         className="px-2 py-1 rounded bg-gray-100 text-gray-800 hover:bg-gray-200"
                     >
                         📞
-                    </button>
+                    </button> */}
                     <button
                         title="Llamada a cabina"
                         onClick={() => onLlamarCabina(ultimoEvento)}
