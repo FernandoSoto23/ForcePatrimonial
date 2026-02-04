@@ -10,18 +10,13 @@ export function setCodigoAgente(codigo) {
   )}; expires=${expires.toUTCString()}; path=/`;
 }
 
-export function getCodigoAgente() {
-  const cookies = document.cookie.split("; ");
-
-  for (const c of cookies) {
-    const [key, value] = c.split("=");
-    if (key === COOKIE_NAME) {
-      return decodeURIComponent(value);
-    }
-  }
-  return null;
-}
+export const getCodigoAgente = () => {
+  const match = document.cookie.match(/codigoAgente=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+};
 
 export function clearCodigoAgente() {
   document.cookie = `${COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
 }
+
+

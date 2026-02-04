@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
 export default function useWialonKeepAlive() {
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
@@ -8,28 +9,28 @@ export default function useWialonKeepAlive() {
 
     console.log("✅ Wialon KeepAlive iniciado...");
 
-    const interval = setInterval(
-      async () => {
-        try {
-          const res = await fetch(`${API_URL}/auth/wialon/renew`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
+    const interval = setInterval(async () => {
+      try {
+        console.log("🔄 KeepAlive ejecutando ping...");
 
-          // Si Wialon mata el SID → logout automático
-          if (!res.ok) {
-            console.warn("⚠️ Sesión Wialon expirada, logout...");
+        const res = await fetch(`${API_URL}/auth/wialon/renew`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-            localStorage.removeItem("token");
-            window.location.href = "/login";
-          }
-        } catch (err) {
-          console.error("❌ Error en keepalive:", err);
+        if (!res.ok) {
+          console.warn("⚠️ Sesión Wialon expirada, logout...");
+
+          localStorage.removeItem("auth_token");
+          window.location.href = "/login";
+        } else {
+          console.log("✅ SID sigue vivo");
         }
-      },
-      5 * 60 * 1000,
-    ); // cada 5 minutos
+      } catch (err) {
+        console.error("❌ Error en keepalive:", err);
+      }
+    }, 120 * 1000); // ✅ cada 10 segundos (TEST)
 
     return () => clearInterval(interval);
   }, []);

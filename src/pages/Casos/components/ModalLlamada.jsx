@@ -1,11 +1,10 @@
 import { useState, useRef, useEffect } from "react";
+import { getCodigoAgente } from "../../../utils/codigoAgente";
 
 export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
-  const [agentCode, setAgentCode] = useState("");
   const [llamando, setLlamando] = useState(false);
   const [enLlamada, setEnLlamada] = useState(false);
   const [segundos, setSegundos] = useState(0);
-  const [mute, setMute] = useState(false);
 
   const [telefonoUnidad, setTelefonoUnidad] = useState(null);
 
@@ -74,9 +73,7 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
       clearInterval(timerRef.current);
       setEnLlamada(false);
       setSegundos(0);
-      setMute(false);
       setLlamando(false);
-      setAgentCode("");
       setTelefonoUnidad(null);
     }
   }, [abierto]);
@@ -85,8 +82,10 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
   // ✅ LLAMAR CABINA
   // ===============================
   const llamarCabina = async () => {
+    const agentCode = getCodigoAgente(); // 👈 cookie
+
     if (!agentCode) {
-      alert("Ingresa el código del agente");
+      alert("No hay código de agente activo. Ingrésalo antes de llamar.");
       return;
     }
 
@@ -107,7 +106,7 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
         signal: abortRef.current.signal,
         body: JSON.stringify({
           numero: telefonoUnidad,
-          agentCode,
+          agentCode, // 👈 VIENE DE COOKIE
         }),
       });
 
@@ -123,6 +122,7 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
     }
   };
 
+
   const colgar = () => {
     clearInterval(timerRef.current);
     abortRef.current?.abort();
@@ -132,6 +132,8 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
   };
 
   const formatTime = (s) => `00:${s.toString().padStart(2, "0")}`;
+
+
 
   // ===============================
   // RENDER
@@ -168,21 +170,7 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
               </div>
             )}
 
-            {/* INPUT AGENTE */}
-            {!enLlamada && (
-              <div className="mt-4">
-                <label className="text-xs font-semibold text-gray-600">
-                  Código de agente
-                </label>
-                <input
-                  type="text"
-                  value={agentCode}
-                  onChange={(e) => setAgentCode(e.target.value.toUpperCase())}
-                  className="mt-1 w-full border rounded px-3 py-2 text-sm"
-                  placeholder="FEF2EA"
-                />
-              </div>
-            )}
+
 
             {/* BOTONES */}
             <div className="mt-6 space-y-3">
