@@ -200,13 +200,13 @@ export default function HistorialPanel({
             <div
                 className={`
         absolute top-2 left-20 z-[9999] w-[320px] max-h-[90vh]
-        bg-slate-100 shadow-2xl flex flex-col overflow-hidden rounded-2xl
+        bg-neutral-300 shadow-2xl flex flex-col overflow-hidden rounded-2xl
         transform transition-all duration-300 ease-out
         ${closing ? "-translate-x-6 opacity-0" : "translate-x-0 opacity-100"}
       `}
             >
                 {/* HEADER */}
-                <div className="bg-gradient-to-r from-slate-700 to-slate-800 text-white px-4 py-3 flex justify-between">
+                <div className="bg-gradient-to-r from-slate-500 to-slate-800 text-white px-4 py-3 flex justify-between">
                     <div className="flex items-center gap-2">
                         <FaMapMarkedAlt />
                         <span className="font-bold">Historial de Ruta</span>
@@ -217,7 +217,7 @@ export default function HistorialPanel({
                 </div>
 
                 {/* FORM */}
-                <div className="p-3 space-y-3 bg-white border-b">
+                <div className="p-3 space-y-3 bg-s-300 border-b">
                     <select
                         className="w-full rounded-lg border px-3 py-2 text-sm"
                         value={selectedUnitId || ""}
@@ -272,7 +272,7 @@ export default function HistorialPanel({
                                 ),
                             })
                         }
-                        className="w-full bg-green-600 text-white rounded-lg py-2 font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full bg-green-800 text-white rounded-lg py-2 font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {historyLoading
                             ? "Consultando..."
@@ -385,10 +385,10 @@ export default function HistorialPanel({
                 </div>
 
                 {/* BOTÓN CERRAR */}
-                <div className="p-3 border-t bg-white">
+                <div className="p-3 bg-neutral-300">
                     <button
                         onClick={handleRequestClose}
-                        className="w-full bg-red-600 hover:bg-red-700 text-white rounded-lg py-2 font-semibold transition-colors"
+                        className="w-full bg-red-800 hover:bg-red-700 text-white rounded-lg py-2 font-semibold transition-colors"
                     >
                         Cerrar historial
                     </button>

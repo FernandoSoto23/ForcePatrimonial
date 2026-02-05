@@ -111,6 +111,7 @@ export default function GlobalTrack() {
   // ✅ NUEVO: PARADA SELECCIONADA
   const [selectedStopIndex, setSelectedStopIndex] = useState(null);
 
+  
   /* =========================
     AUTO REFRESH
   ========================= */
