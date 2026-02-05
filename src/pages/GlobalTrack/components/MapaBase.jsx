@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef, useMemo } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -15,9 +13,11 @@ export default function MapaBase({
   geocercasLinealesGeoJSON,
   followUnitId = null,
   setFollowUnitId = () => { },
-
-  // ✅ mostrar/ocultar popup info (etiqueta)
   showInfoPopup = true,
+
+  // ✅ NUEVAS PROPS PARA HISTORIAL
+  historyData = [],
+  showHistoryRoute = false,
 }) {
   const containerRef = useRef(null);
   const hoverPopupRef = useRef(null);
@@ -25,6 +25,9 @@ export default function MapaBase({
   // ✅ ruta de seguimiento
   const followPathRef = useRef([]);
   const lastFollowPosRef = useRef(null);
+
+  // ✅ marcadores de historial
+  const historyMarkersRef = useRef([]);
 
   // ✅ throttle
   const lastFollowTickRef = useRef(0);
@@ -45,6 +48,11 @@ export default function MapaBase({
 
   // ✅ evitar que se cierre por error
   const closingBecauseHideRef = useRef(false);
+
+  // 🟡 paradas históricas (Wialon style)
+  const historyStopsLayerAddedRef = useRef(false);
+
+
 
   /* =========================
      ✅ ID UNIFICADO
@@ -424,6 +432,277 @@ export default function MapaBase({
   };
 
   /* =========================
+     ✅ FORMATEAR TIEMPO HISTORIAL
+  ========================= */
+  const formatHistoryTime = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleString('es-MX', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+  /* =========================
+     🟡 DIBUJAR PARADAS HISTÓRICAS (WIALON)
+  ========================= */
+  const drawHistoryStops = (map) => {
+    if (!showHistoryRoute || !historyData.length) {
+      historyStopsLayerAddedRef.current = false;
+      return;
+    }
+
+
+    // limpiar si ya existían
+    if (map.getLayer("history-stops-layer")) map.removeLayer("history-stops-layer");
+    if (map.getSource("history-stops")) map.removeSource("history-stops");
+
+    const features = [];
+    let start = null;
+
+    for (let i = 0; i < historyData.length; i++) {
+      const p = historyData[i];
+      const speed = Number(p.speed ?? p.sp ?? 0);
+
+      if (speed <= 2) {
+        if (!start) start = p;
+      } else if (start) {
+        const from = start.time ?? start.t;
+        const to = p.time ?? p.t;
+        const duration = to - from;
+
+        if (duration >= 600) {
+          features.push({
+            type: "Feature",
+            geometry: {
+              type: "Point",
+              coordinates: [start.lon ?? start.lng, start.lat],
+            },
+            properties: {
+              duration,
+              from,
+              to,
+            },
+          });
+        }
+        start = null;
+      }
+    }
+
+    if (!features.length) return;
+
+    map.addSource("history-stops", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features },
+    });
+
+    map.addLayer({
+      id: "history-stops-layer",
+      type: "circle",
+      source: "history-stops",
+      paint: {
+        "circle-radius": 7,
+        "circle-color": "#facc15",
+        "circle-stroke-color": "#000",
+        "circle-stroke-width": 2,
+      },
+    });
+
+    // hover tipo Wialon
+    map.on("mouseenter", "history-stops-layer", (e) => {
+      map.getCanvas().style.cursor = "pointer";
+      const f = e.features[0];
+      const mins = Math.round(f.properties.duration / 60);
+
+      hoverPopupRef.current = new mapboxgl.Popup({
+        closeButton: false,
+        closeOnClick: false,
+        offset: 12,
+      })
+        .setLngLat(e.lngLat)
+        .setHTML(`
+        <div style="font-family:system-ui;font-size:12px">
+          <b>⏸ Parada ${mins}m</b><br/>
+          ${formatHistoryTime(f.properties.from)} →
+          ${formatHistoryTime(f.properties.to)}
+        </div>
+      `)
+        .addTo(map);
+    });
+
+    map.on("mouseleave", "history-stops-layer", () => {
+      map.getCanvas().style.cursor = "";
+      hoverPopupRef.current?.remove();
+      hoverPopupRef.current = null;
+    });
+  };
+
+  /* =========================
+     ✅ DIBUJAR RUTA HISTÓRICA
+  ========================= */
+  console.log("showHistoryRoute:", showHistoryRoute);
+  console.log("historyData length:", historyData.length);
+
+  const drawHistoryRoute = (map) => {
+    // Limpiar marcadores anteriores
+    historyMarkersRef.current.forEach(marker => marker.remove());
+    historyMarkersRef.current = [];
+
+    if (!showHistoryRoute || !historyData || historyData.length === 0) {
+      // Limpiar capas de historial
+      if (map.getLayer('history-route-outline')) {
+        map.removeLayer('history-route-outline');
+      }
+      if (map.getLayer('history-route-layer')) {
+        map.removeLayer('history-route-layer');
+      }
+      if (map.getSource('history-route')) {
+        map.removeSource('history-route');
+      }
+      return;
+    }
+
+    const coordinates = historyData
+      .filter(point =>
+        Number.isFinite(point.lat) &&
+        Number.isFinite(point.lon ?? point.lng)
+      )
+      .map(point => [
+        point.lon ?? point.lng, // LNG
+        point.lat               // LAT
+      ]);
+
+    if (coordinates.length === 0) return;
+
+    // Crear GeoJSON
+    const geojson = {
+      type: 'Feature',
+      properties: {},
+      geometry: {
+        type: 'LineString',
+        coordinates: coordinates
+      }
+    };
+
+    // Determinar la capa antes de la cual insertar
+    const beforeId = map.getLayer("units-layer") ? "units-layer" : undefined;
+
+    // Agregar/actualizar source
+    if (!map.getSource('history-route')) {
+      map.addSource('history-route', {
+        type: 'geojson',
+        data: geojson
+      });
+    } else {
+      map.getSource('history-route').setData(geojson);
+    }
+
+    // Agregar capa de borde (outline)
+    if (!map.getLayer('history-route-outline')) {
+      map.addLayer({
+        id: 'history-route-outline',
+        type: 'line',
+        source: 'history-route',
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': '#000000',   // ← COLOR BORDE
+          'line-width': 7,
+          'line-opacity': 0.4
+        }
+
+      }, beforeId);
+    }
+
+    // Agregar capa principal
+    if (!map.getLayer('history-route-layer')) {
+      map.addLayer({
+        id: 'history-route-layer',
+        type: 'line',
+        source: 'history-route',
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': '#9716a3',
+          'line-width': 4,
+          'line-opacity': 0.85
+        }
+      }, beforeId);
+    }
+
+    // Marcador de INICIO (verde)
+    const startEl = document.createElement('div');
+    startEl.style.cssText = `
+      background-color: #16a34a;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      cursor: pointer;
+    `;
+
+    const startMarker = new mapboxgl.Marker({ element: startEl })
+      .setLngLat(coordinates[0])
+      .setPopup(
+        new mapboxgl.Popup({ offset: 25 })
+          .setHTML(`
+            <div style="padding: 8px; font-family: system-ui;">
+              <strong style="color: #16a34a;">🟢 Inicio</strong><br/>
+              <small>${formatHistoryTime(historyData[0].time)}</small>
+            </div>
+          `)
+      )
+      .addTo(map);
+
+    historyMarkersRef.current.push(startMarker);
+
+    // Marcador de FIN (rojo)
+    const endEl = document.createElement('div');
+    endEl.style.cssText = `
+      background-color: #dc2626;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      cursor: pointer;
+    `;
+
+    const endMarker = new mapboxgl.Marker({ element: endEl })
+      .setLngLat(coordinates[coordinates.length - 1])
+      .setPopup(
+        new mapboxgl.Popup({ offset: 25 })
+          .setHTML(`
+            <div style="padding: 8px; font-family: system-ui;">
+              <strong style="color: #dc2626;">🔴 Fin</strong><br/>
+              <small>${formatHistoryTime(historyData[historyData.length - 1].time)}</small>
+            </div>
+          `)
+      )
+      .addTo(map);
+
+    historyMarkersRef.current.push(endMarker);
+
+    // Ajustar vista del mapa
+    const bounds = coordinates.reduce((bounds, coord) => {
+      return bounds.extend(coord);
+    }, new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));
+
+    map.fitBounds(bounds, {
+      padding: { top: 50, bottom: 50, left: 450, right: 50 },
+      maxZoom: 15,
+      duration: 1000
+    });
+  };
+
+  /* =========================
      DRAW UNITS
   ========================= */
   const drawUnits = (map) => {
@@ -486,17 +765,10 @@ export default function MapaBase({
           },
         });
 
-        /* =========================================================
-           ✅ CLICK DESACTIVADO (QUITAR ETIQUETA)
-        ========================================================= */
         map.on("click", "units-layer", () => {
-          // ✅ NO HACER NADA
-          // (no popup al click)
+          // NO HACER NADA (no popup al click)
         });
 
-        /* =========================
-           ✅ HOVER
-        ========================= */
         map.on("mousemove", "units-layer", (e) => {
           const f = e.features?.[0];
           if (!f) return;
@@ -579,9 +851,29 @@ export default function MapaBase({
      GEOCERCAS LINEALES
   ========================= */
   const drawGeocercasLineales = (map) => {
-    if (!geocercasLinealesGeoJSON) return;// =========================
-    // ✅ HOVER GEOCERCAS LINEALES
-    // =========================
+    if (!geocercasLinealesGeoJSON) return;
+
+    if (map.getSource("geocercas-lineales")) {
+      map.getSource("geocercas-lineales").setData(geocercasLinealesGeoJSON);
+      return;
+    }
+
+    map.addSource("geocercas-lineales", {
+      type: "geojson",
+      data: geocercasLinealesGeoJSON,
+    });
+
+    if (!map.getLayer("geocercas-lineales-layer")) {
+      map.addLayer({
+        id: "geocercas-lineales-layer",
+        type: "line",
+        source: "geocercas-lineales",
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: { "line-color": "#00d0ff", "line-width": 3, "line-opacity": 0.9 },
+      });
+    }
+
+    // HOVER GEOCERCAS LINEALES
     map.on("mousemove", "geocercas-lineales-layer", (e) => {
       const f = e.features?.[0];
       if (!f) return;
@@ -609,27 +901,6 @@ export default function MapaBase({
       hoverPopupRef.current?.remove();
       hoverPopupRef.current = null;
     });
-
-
-    if (map.getSource("geocercas-lineales")) {
-      map.getSource("geocercas-lineales").setData(geocercasLinealesGeoJSON);
-      return;
-    }
-
-    map.addSource("geocercas-lineales", {
-      type: "geojson",
-      data: geocercasLinealesGeoJSON,
-    });
-
-    if (!map.getLayer("geocercas-lineales-layer")) {
-      map.addLayer({
-        id: "geocercas-lineales-layer",
-        type: "line",
-        source: "geocercas-lineales",
-        layout: { "line-join": "round", "line-cap": "round" },
-        paint: { "line-color": "#00d0ff", "line-width": 3, "line-opacity": 0.9 },
-      });
-    }
   };
 
   /* =========================
@@ -839,12 +1110,16 @@ export default function MapaBase({
         drawGeocercas(map);
         drawGeocercasLineales(map);
         drawUnits(map);
-
+        drawHistoryRoute(map); // ✅
+        drawHistoryStops(map); // ✅ AQUÍ
         if (followUnitId) followUnitTick(map);
       });
     });
 
-    return () => map.remove();
+    return () => {
+      historyMarkersRef.current.forEach(marker => marker.remove());
+      map.remove();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -862,6 +1137,7 @@ export default function MapaBase({
         drawGeocercas(map);
         drawGeocercasLineales(map);
         drawUnits(map);
+        drawHistoryRoute(map); // ✅ AGREGAR
 
         if (followUnitId) {
           ensureFollowRoute(map);
@@ -883,6 +1159,20 @@ export default function MapaBase({
       if (followUnitId) followUnitTick(map);
     });
   }, [units, followUnitId, showInfoPopup]);
+
+  /* =========================
+     ✅ UPDATE HISTORY ROUTE
+  ========================= */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    runWhenReady(map, () => {
+      drawHistoryRoute(map);
+      drawHistoryStops(map); // ✅ AQUÍ TAMBIÉN
+    });
+  }, [historyData, showHistoryRoute]);
+
 
   /* =========================
      WHEN FOLLOW CHANGES

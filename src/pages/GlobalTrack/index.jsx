@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 
@@ -15,12 +13,10 @@ import { useGeocercasLineales } from "../../context/GeocercasLinealesContext";
 import { FaTruck, FaMapMarkedAlt, FaMapMarkerAlt } from "react-icons/fa";
 import { MdOutlineReplay10 } from "react-icons/md";
 import { MdGpsFixed } from "react-icons/md";
-
-// ✅ iconos para etiqueta SOLO seguimiento
 import { AiFillEye, AiFillEyeInvisible } from "react-icons/ai";
 
 /* =========================
-   MAPBOX STYLES
+  MAPBOX STYLES
 ========================= */
 const MAP_STYLES = {
   normal: "mapbox://styles/mapbox/navigation-day-v1",
@@ -29,7 +25,7 @@ const MAP_STYLES = {
 };
 
 /* =========================
-   HELPERS
+  HELPERS
 ========================= */
 function normalize(text = "") {
   return text
@@ -80,7 +76,7 @@ function getGeoCenterSafe(feature) {
 }
 
 /* =========================
-   COMPONENT
+  COMPONENT
 ========================= */
 export default function GlobalTrack() {
   const { units, refreshUnits } = useUnits();
@@ -104,8 +100,16 @@ export default function GlobalTrack() {
   // ✅ SOLO ETIQUETA DEL SEGUIMIENTO
   const [followShowPopup, setFollowShowPopup] = useState(true);
 
+  // ✅ ESTADO PARA HISTORIAL DE RUTAS
+  const [routeHistoryData, setRouteHistoryData] = useState([]);
+  const [routeHistoryLoading, setRouteHistoryLoading] = useState(false);
+  const [routeHistoryError, setRouteHistoryError] = useState(null);
+
+  // ✅ MOSTRAR/OCULTAR RUTA HISTORIAL
+  const [showHistoryRoute, setShowHistoryRoute] = useState(false);
+
   /* =========================
-     AUTO REFRESH
+    AUTO REFRESH
   ========================= */
   useEffect(() => {
     const id = setInterval(() => {
@@ -115,7 +119,7 @@ export default function GlobalTrack() {
   }, [refreshUnits]);
 
   /* =========================
-     UNITS
+    UNITS
   ========================= */
   const safeUnits = useMemo(() => {
     if (Array.isArray(units)) return units;
@@ -131,7 +135,7 @@ export default function GlobalTrack() {
   }, [safeUnits, search]);
 
   /* =========================
-     GEOCERCAS
+    GEOCERCAS
   ========================= */
   const filteredGeocercas = useMemo(() => {
     if (!Array.isArray(polys)) return [];
@@ -148,7 +152,92 @@ export default function GlobalTrack() {
   }, [polys, searchGeo]);
 
   /* =========================
-     ACTIONS
+    🔥 BORRAR HISTORIAL DEL MAPA (FORZADO)
+  ========================= */
+  function forceClearHistoryFromMap() {
+    const map = mapRef.current;
+    if (!map) return;
+
+    // Stops
+    if (map.getLayer("history-stops-layer")) map.removeLayer("history-stops-layer");
+    if (map.getSource("history-stops")) map.removeSource("history-stops");
+
+    // Route
+    if (map.getLayer("history-route-layer")) map.removeLayer("history-route-layer");
+    if (map.getLayer("history-route-outline")) map.removeLayer("history-route-outline");
+    if (map.getSource("history-route")) map.removeSource("history-route");
+  }
+
+  function handleClearHistory() {
+    // 1) apaga dibujo
+    setShowHistoryRoute(false);
+
+    // 2) limpia data (esto hace que MapaBase también ejecute su limpieza interna)
+    setRouteHistoryData([]);
+    setRouteHistoryError(null);
+
+    // 3) borra inmediatamente del mapa (sin esperar a useEffect)
+    forceClearHistoryFromMap();
+  }
+
+  /* =========================
+    FETCH ROUTE HISTORY
+  ========================= */
+  async function fetchRouteHistory({ unitId, from, to }) {
+    setRouteHistoryLoading(true);
+    setRouteHistoryError(null);
+    setRouteHistoryData([]);
+
+    // oculta ruta previa
+    setShowHistoryRoute(false);
+    // limpia del mapa también para evitar "fantasmas"
+    forceClearHistoryFromMap();
+
+    try {
+      const token = localStorage.getItem("auth_token");
+      if (!token) {
+        setRouteHistoryError("No hay sesión activa.");
+        return;
+      }
+
+      const res = await fetch("http://localhost:4000/historial-unidades", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          idents: [String(unitId)],
+          from,
+          to,
+        }),
+      });
+
+      let json = null;
+      try {
+        json = await res.json();
+      } catch { }
+
+      if (!res.ok) {
+        setRouteHistoryError(
+          json?.error || json?.message || "No se pudo consultar el historial."
+        );
+        return;
+      }
+
+      const data = Array.isArray(json?.data) ? json.data : [];
+      setRouteHistoryData(data);
+      setShowHistoryRoute(data.length > 0);
+    } catch (err) {
+      console.error("❌ fetchRouteHistory:", err);
+      setRouteHistoryError("Error de red al consultar historial.");
+    } finally {
+      setRouteHistoryLoading(false);
+    }
+  }
+
+  /* =========================
+    ACTIONS
   ========================= */
   function focusUnit(u) {
     const map = mapRef?.current;
@@ -175,7 +264,7 @@ export default function GlobalTrack() {
   }
 
   /* =========================
-     RENDER
+    RENDER
   ========================= */
   return (
     <div className="relative w-screen h-screen">
@@ -223,7 +312,6 @@ export default function GlobalTrack() {
                   </div>
                 </div>
 
-                {/* Velocidad */}
                 <span
                   className={[
                     "text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap",
@@ -235,7 +323,6 @@ export default function GlobalTrack() {
                   {speed} km/h
                 </span>
 
-                {/* ✅ SOLO MOSTRAR BOTÓN SI ESTA UNIDAD SE ESTÁ SIGUIENDO */}
                 {isFollowing && (
                   <button
                     title={
@@ -259,21 +346,17 @@ export default function GlobalTrack() {
                   </button>
                 )}
 
-                {/* ✅ SEGUIR GPS */}
                 <button
                   title={isFollowing ? "Dejar de seguir" : "Seguir unidad"}
                   onClick={() => toggleFollow(u)}
                   className={[
                     "transition-colors",
-                    isFollowing
-                      ? "text-blue-700"
-                      : "text-gray-500 hover:text-blue-600",
+                    isFollowing ? "text-blue-700" : "text-gray-500 hover:text-blue-600",
                   ].join(" ")}
                 >
                   <MdGpsFixed size={18} />
                 </button>
 
-                {/* Ubicar */}
                 <button
                   title="Ubicar"
                   onClick={() => focusUnit(u)}
@@ -282,11 +365,10 @@ export default function GlobalTrack() {
                   <FaMapMarkerAlt />
                 </button>
 
-                {/* Historial */}
                 <button
-                  title="Historial"
+                  title="Ver historial"
                   onClick={() => openHistory(u)}
-                  className="text-gray-500 hover:text-purple-600"
+                  className="text-gray-500 hover:text-blue-600"
                 >
                   <MdOutlineReplay10 size={18} />
                 </button>
@@ -347,9 +429,7 @@ export default function GlobalTrack() {
                 setMapStyle(m);
                 setActivePanel(null);
               }}
-              className={`w-full px-3 py-2 rounded-lg text-left ${mapStyle === m
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 hover:bg-gray-200"
+              className={`w-full px-3 py-2 rounded-lg text-left ${mapStyle === m ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200"
                 }`}
             >
               {m === "normal" && "🗺 Normal"}
@@ -359,6 +439,30 @@ export default function GlobalTrack() {
           ))}
         </div>
       </SidePanel>
+
+      {/* ================= HISTORIAL PANEL ================= */}
+      {historyOpen && (
+        <HistorialPanel
+          isOpen={historyOpen}
+          onClose={() => {
+            setHistoryOpen(false);
+            setHistoryUnitId(null);
+            handleClearHistory(); // ✅ al cerrar también limpia el mapa
+          }}
+          units={safeUnits}
+          selectedUnitId={historyUnitId}
+          onSelectUnit={setHistoryUnitId}
+          onFetchHistory={fetchRouteHistory}
+          historyData={routeHistoryData}
+          historyLoading={routeHistoryLoading}
+          historyError={routeHistoryError}
+          mapRef={mapRef}
+          showHistoryRoute={showHistoryRoute}
+          setShowHistoryRoute={setShowHistoryRoute}
+          // ✅ ESTE ES EL IMPORTANTE (BOTÓN BORRAR HISTORIAL)
+          onClearHistory={handleClearHistory}
+        />
+      )}
 
       {/* ================= MAPA ================= */}
       <MapaBase
@@ -376,18 +480,11 @@ export default function GlobalTrack() {
         }}
         followUnitId={followUnitId}
         setFollowUnitId={setFollowUnitId}
-        // ✅ SOLO PARA SEGUIMIENTO
         followShowPopup={followShowPopup}
+        // 🔥 HISTORIAL
+        historyData={routeHistoryData}
+        showHistoryRoute={showHistoryRoute}
       />
-
-      {/* ================= HISTORIAL ================= */}
-      {historyOpen && (
-        <HistorialPanel
-          mapRef={mapRef}
-          unitId={historyUnitId}
-          onClose={() => setHistoryOpen(false)}
-        />
-      )}
     </div>
   );
 }

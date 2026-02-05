@@ -1,4 +1,4 @@
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, href } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { FiUser, FiLogOut, FiChevronDown } from "react-icons/fi";
 import { IoNotifications } from "react-icons/io5";
@@ -25,7 +25,6 @@ export default function Navbar({ user }) {
       { href: "/dispositivos", label: "Dispositivos" },
       { href: "/casos", label: "Casos" },
       { href: "/monitoreopro", label: "MonitoreoPro" },
-      /* { href: "/casosv2", label: "Casosv2" }, */
     ],
   };
 
@@ -105,9 +104,8 @@ export default function Navbar({ user }) {
               >
                 {category}
                 <FiChevronDown
-                  className={`transition ${
-                    openMenu === category ? "rotate-180 text-green-400" : ""
-                  }`}
+                  className={`transition ${openMenu === category ? "rotate-180 text-green-400" : ""
+                    }`}
                 />
               </button>
 
@@ -149,9 +147,8 @@ export default function Navbar({ user }) {
                 {user?.name ?? "Usuario"}
               </span>
               <FiChevronDown
-                className={`transition ${
-                  userMenuOpen ? "rotate-180 text-green-400" : ""
-                }`}
+                className={`transition ${userMenuOpen ? "rotate-180 text-green-400" : ""
+                  }`}
               />
             </button>
 
