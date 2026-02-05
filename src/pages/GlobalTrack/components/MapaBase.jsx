@@ -18,6 +18,7 @@ export default function MapaBase({
   // ✅ NUEVAS PROPS PARA HISTORIAL
   historyData = [],
   showHistoryRoute = false,
+  selectedStopIndex = null, // ✅ NUEVA PROP para parada seleccionada
 }) {
   const containerRef = useRef(null);
   const hoverPopupRef = useRef(null);
@@ -28,6 +29,9 @@ export default function MapaBase({
 
   // ✅ marcadores de historial
   const historyMarkersRef = useRef([]);
+
+  // ✅ popup de parada seleccionada
+  const stopPopupRef = useRef(null);
 
   // ✅ throttle
   const lastFollowTickRef = useRef(0);
@@ -445,6 +449,46 @@ export default function MapaBase({
       minute: '2-digit'
     });
   };
+
+  /* =========================
+     ✅ CALCULAR PARADAS (PARA TENER LA LISTA)
+  ========================= */
+  const calculateStops = useMemo(() => {
+    if (!showHistoryRoute || !historyData.length) return [];
+
+    const stops = [];
+    let start = null;
+
+    for (let i = 0; i < historyData.length; i++) {
+      const p = historyData[i];
+      const speed = Number(p.speed ?? p.sp ?? 0);
+
+      if (speed <= 2) {
+        if (!start) start = { point: p, startIndex: i };
+      } else if (start) {
+        const from = start.point.time ?? start.point.t;
+        const to = p.time ?? p.t;
+        const duration = to - from;
+
+        if (duration >= 600) {
+          stops.push({
+            index: stops.length,
+            startIndex: start.startIndex,
+            endIndex: i,
+            lat: start.point.lat,
+            lon: start.point.lon ?? start.point.lng,
+            from,
+            to,
+            duration,
+          });
+        }
+        start = null;
+      }
+    }
+
+    return stops;
+  }, [historyData, showHistoryRoute]);
+
   /* =========================
      🟡 DIBUJAR PARADAS HISTÓRICAS (WIALON)
   ========================= */
@@ -454,42 +498,23 @@ export default function MapaBase({
       return;
     }
 
-
     // limpiar si ya existían
     if (map.getLayer("history-stops-layer")) map.removeLayer("history-stops-layer");
     if (map.getSource("history-stops")) map.removeSource("history-stops");
 
-    const features = [];
-    let start = null;
-
-    for (let i = 0; i < historyData.length; i++) {
-      const p = historyData[i];
-      const speed = Number(p.speed ?? p.sp ?? 0);
-
-      if (speed <= 2) {
-        if (!start) start = p;
-      } else if (start) {
-        const from = start.time ?? start.t;
-        const to = p.time ?? p.t;
-        const duration = to - from;
-
-        if (duration >= 600) {
-          features.push({
-            type: "Feature",
-            geometry: {
-              type: "Point",
-              coordinates: [start.lon ?? start.lng, start.lat],
-            },
-            properties: {
-              duration,
-              from,
-              to,
-            },
-          });
-        }
-        start = null;
-      }
-    }
+    const features = calculateStops.map(stop => ({
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: [stop.lon, stop.lat],
+      },
+      properties: {
+        stopIndex: stop.index,
+        duration: stop.duration,
+        from: stop.from,
+        to: stop.to,
+      },
+    }));
 
     if (!features.length) return;
 
@@ -540,11 +565,81 @@ export default function MapaBase({
   };
 
   /* =========================
+     ✅ FOCUS EN PARADA SELECCIONADA
+  ========================= */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || selectedStopIndex === null || !calculateStops.length) {
+      // Limpiar popup de parada si existe
+      if (stopPopupRef.current) {
+        stopPopupRef.current.remove();
+        stopPopupRef.current = null;
+      }
+      return;
+    }
+
+    const stop = calculateStops.find(s => s.index === selectedStopIndex);
+    if (!stop) return;
+
+    const coords = [stop.lon, stop.lat];
+    const mins = Math.round(stop.duration / 60);
+
+    // Mover el mapa a la parada
+    map.flyTo({
+      center: coords,
+      zoom: 16,
+      duration: 1000,
+    });
+
+    // Crear/actualizar popup de parada
+    if (stopPopupRef.current) {
+      stopPopupRef.current.remove();
+    }
+
+    stopPopupRef.current = new mapboxgl.Popup({
+      closeButton: true,
+      closeOnClick: false,
+      offset: 15,
+    })
+      .setLngLat(coords)
+      .setHTML(`
+        <div style="
+          font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+          padding: 8px 10px;
+          min-width: 220px;
+        ">
+          <div style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+          ">
+            <div style="
+              width: 12px;
+              height: 12px;
+              background: #facc15;
+              border-radius: 50%;
+              border: 2px solid #000;
+            "></div>
+            <strong style="font-size: 14px;">⏸ Parada ${mins}m</strong>
+          </div>
+          <div style="font-size: 12px; color: #374151; line-height: 1.4;">
+            ${formatHistoryTime(stop.from)} — ${formatHistoryTime(stop.to).split(', ')[1]}
+          </div>
+        </div>
+      `)
+      .addTo(map);
+
+    // Limpiar cuando se cierre el popup manualmente
+    stopPopupRef.current.on('close', () => {
+      stopPopupRef.current = null;
+    });
+
+  }, [selectedStopIndex, calculateStops]);
+
+  /* =========================
      ✅ DIBUJAR RUTA HISTÓRICA
   ========================= */
-  console.log("showHistoryRoute:", showHistoryRoute);
-  console.log("historyData length:", historyData.length);
-
   const drawHistoryRoute = (map) => {
     // Limpiar marcadores anteriores
     historyMarkersRef.current.forEach(marker => marker.remove());
@@ -1111,13 +1206,14 @@ export default function MapaBase({
         drawGeocercasLineales(map);
         drawUnits(map);
         drawHistoryRoute(map); // ✅
-        drawHistoryStops(map); // ✅ AQUÍ
+        drawHistoryStops(map); // ✅
         if (followUnitId) followUnitTick(map);
       });
     });
 
     return () => {
       historyMarkersRef.current.forEach(marker => marker.remove());
+      if (stopPopupRef.current) stopPopupRef.current.remove();
       map.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1137,7 +1233,7 @@ export default function MapaBase({
         drawGeocercas(map);
         drawGeocercasLineales(map);
         drawUnits(map);
-        drawHistoryRoute(map); // ✅ AGREGAR
+        drawHistoryRoute(map); // ✅
 
         if (followUnitId) {
           ensureFollowRoute(map);
@@ -1169,7 +1265,7 @@ export default function MapaBase({
 
     runWhenReady(map, () => {
       drawHistoryRoute(map);
-      drawHistoryStops(map); // ✅ AQUÍ TAMBIÉN
+      drawHistoryStops(map); // ✅
     });
   }, [historyData, showHistoryRoute]);
 

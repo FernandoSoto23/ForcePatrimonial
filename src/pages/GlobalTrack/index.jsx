@@ -108,6 +108,9 @@ export default function GlobalTrack() {
   // ✅ MOSTRAR/OCULTAR RUTA HISTORIAL
   const [showHistoryRoute, setShowHistoryRoute] = useState(false);
 
+  // ✅ NUEVO: PARADA SELECCIONADA
+  const [selectedStopIndex, setSelectedStopIndex] = useState(null);
+
   /* =========================
     AUTO REFRESH
   ========================= */
@@ -176,7 +179,10 @@ export default function GlobalTrack() {
     setRouteHistoryData([]);
     setRouteHistoryError(null);
 
-    // 3) borra inmediatamente del mapa (sin esperar a useEffect)
+    // 3) limpiar selección de parada
+    setSelectedStopIndex(null);
+
+    // 4) borra inmediatamente del mapa (sin esperar a useEffect)
     forceClearHistoryFromMap();
   }
 
@@ -187,10 +193,8 @@ export default function GlobalTrack() {
     setRouteHistoryLoading(true);
     setRouteHistoryError(null);
     setRouteHistoryData([]);
-
-    // oculta ruta previa
     setShowHistoryRoute(false);
-    // limpia del mapa también para evitar "fantasmas"
+    setSelectedStopIndex(null); // ✅ limpiar selección
     forceClearHistoryFromMap();
 
     try {
@@ -199,24 +203,27 @@ export default function GlobalTrack() {
         setRouteHistoryError("No hay sesión activa.");
         return;
       }
+      const API_URL = (
+        import.meta.env.VITE_API_URL || "http://localhost:4000"
+      ).replace(/\/$/, ""); // 🔒 quita slash final si existe
 
-      const res = await fetch("http://localhost:4000/historial-unidades", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          idents: [String(unitId)],
-          from,
-          to,
-        }),
-      });
+      const res = await fetch(
+        `${API_URL}/historial-unidades`, // 👈 RUTA CORRECTA
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            idents: [String(unitId)],
+            from,
+            to,
+          }),
+        }
+      );
 
-      let json = null;
-      try {
-        json = await res.json();
-      } catch { }
+      const json = await res.json().catch(() => null);
 
       if (!res.ok) {
         setRouteHistoryError(
@@ -235,6 +242,7 @@ export default function GlobalTrack() {
       setRouteHistoryLoading(false);
     }
   }
+
 
   /* =========================
     ACTIONS
@@ -261,6 +269,13 @@ export default function GlobalTrack() {
   function toggleFollow(u) {
     const id = String(u?.id);
     setFollowUnitId((prev) => (prev === id ? null : id));
+  }
+
+  /* =========================
+    ✅ HANDLE STOP SELECTION
+  ========================= */
+  function handleStopSelect(stopIndex) {
+    setSelectedStopIndex(stopIndex);
   }
 
   /* =========================
@@ -461,6 +476,9 @@ export default function GlobalTrack() {
           setShowHistoryRoute={setShowHistoryRoute}
           // ✅ ESTE ES EL IMPORTANTE (BOTÓN BORRAR HISTORIAL)
           onClearHistory={handleClearHistory}
+          // ✅ NUEVO: PASAR HANDLER DE SELECCIÓN DE PARADA
+          onStopSelect={handleStopSelect}
+          selectedStopIndex={selectedStopIndex}
         />
       )}
 
@@ -484,6 +502,8 @@ export default function GlobalTrack() {
         // 🔥 HISTORIAL
         historyData={routeHistoryData}
         showHistoryRoute={showHistoryRoute}
+        // ✅ NUEVO: PASAR ÍNDICE DE PARADA SELECCIONADA
+        selectedStopIndex={selectedStopIndex}
       />
     </div>
   );
