@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { getCodigoAgente } from "../../../utils/codigoAgente";
 
-export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
+export default function ModalLlamadaCabina({ unidad, onColgar }) {
   const [llamando, setLlamando] = useState(false);
   const [enLlamada, setEnLlamada] = useState(false);
   const [segundos, setSegundos] = useState(0);
@@ -19,18 +19,20 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
   const abortRef = useRef(null);
   const timerRef = useRef(null);
 
-  // ===============================
-  // OBTENER TELÉFONO
-  // ===============================
-  useEffect(() => {
-    if (!abierto || !evento?.unidad) return;
+  /* ===============================
+     GUARD
+  =============================== */
 
+  /* ===============================
+     OBTENER TELÉFONO
+  =============================== */
+  useEffect(() => {
     const fetchTelefono = async () => {
       try {
         const token = localStorage.getItem("auth_token");
         const resp = await fetch(
           `https://apipx.onrender.com/unidad/test-unidad-telefono?name=${encodeURIComponent(
-            evento.unidad
+            unidad
           )}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -46,11 +48,11 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
     };
 
     fetchTelefono();
-  }, [abierto, evento]);
+  }, [unidad]);
 
-  // ===============================
-  // TIMER
-  // ===============================
+  /* ===============================
+     TIMER
+  =============================== */
   useEffect(() => {
     if (!enLlamada) return;
 
@@ -65,10 +67,6 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
     if (segundos >= 60) colgar();
   }, [segundos]);
 
-  useEffect(() => {
-    if (!abierto) reset();
-  }, [abierto]);
-
   const reset = () => {
     clearInterval(timerRef.current);
     setEnLlamada(false);
@@ -78,9 +76,9 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
     setTelefonoUnidad(null);
   };
 
-  // ===============================
-  // LLAMAR
-  // ===============================
+  /* ===============================
+     LLAMAR
+  =============================== */
   const llamarCabina = async () => {
     const agentCode = getCodigoAgente();
     if (!agentCode || !telefonoUnidad) return;
@@ -106,15 +104,12 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
   };
 
   const colgar = () => {
-    clearInterval(timerRef.current);
     abortRef.current?.abort();
     reset();
-    onColgar?.();
+    onColgar?.(); // 👈 CIERRA EL MODAL DESDE EL PADRE
   };
 
   const formatTime = (s) => `00:${s.toString().padStart(2, "0")}`;
-
-  if (!abierto || !evento) return null;
 
   return (
     <div className="fixed inset-0 z-[99999] bg-black/60 flex items-center justify-center">
@@ -126,14 +121,14 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
             Llamada desde conmutador
           </h2>
           <p className="text-sm text-gray-500">
-            Unidad: <b>{evento.unidad}</b>
+            Unidad: <b>{unidad}</b>
           </p>
         </div>
 
         {/* TELÉFONO */}
         <div className="text-center text-sm text-gray-600">
           {telefonoUnidad
-            ? `Teléfono encontrado!`
+            ? "Teléfono encontrado"
             : "Buscando teléfono de unidad…"}
         </div>
 
@@ -145,10 +140,8 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
           </div>
         )}
 
-        {/* BOTONERA CUADROS */}
+        {/* BOTONES */}
         <div className="flex justify-center gap-4 pt-4">
-
-          {/* LLAMAR */}
           {!enLlamada && (
             <BotonCuadro
               icon={PhoneCall}
@@ -159,7 +152,6 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
             />
           )}
 
-          {/* MUTE */}
           {enLlamada && (
             <BotonCuadro
               icon={muteado ? MicOff : Mic}
@@ -169,21 +161,12 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
             />
           )}
 
-          {/* COLGAR / CERRAR */}
-          {enLlamada ? (
-            <BotonCuadro
-              icon={PhoneOff}
-              label="Colgar"
-              color="red"
-              onClick={colgar}
-            />
-          ) : (
-            <BotonCuadro
-              icon={X}
-              label="Cerrar"
-              onClick={onColgar}
-            />
-          )}
+          <BotonCuadro
+            icon={enLlamada ? PhoneOff : X}
+            label={enLlamada ? "Colgar" : "Cerrar"}
+            color={enLlamada ? "red" : "gray"}
+            onClick={colgar}
+          />
         </div>
       </div>
     </div>
@@ -191,7 +174,7 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
 }
 
 /* ================================================= */
-/* BOTÓN CUADRO REUTILIZABLE */
+/* BOTÓN CUADRO */
 /* ================================================= */
 function BotonCuadro({
   icon: Icon,

@@ -1,5 +1,7 @@
 import React from "react";
 import { ShieldAlert, ChevronDown } from "lucide-react";
+import Swal from "sweetalert2";
+import { getCodigoAgente } from "../../../utils/codigoAgente";
 
 function CasoCriticoCard({
     caso,
@@ -10,10 +12,39 @@ function CasoCriticoCard({
     esPanico,
     formatearFechaHoraCritica,
     MensajeExpandable,
-    onLlamarCabina
+    onLlamarCabina,
+    codigoAgente,
 }) {
+
     const ultimoEvento = caso.eventos[0];
     const panico = esPanico(caso);
+
+    const textoCombinacion = React.useMemo(() => {
+        if (!caso.repeticiones) return "";
+
+        return Object.entries(caso.repeticiones)
+            .sort((a, b) => b[1] - a[1]) // más frecuentes primero
+            .map(([tipo, total]) => `${tipo} (${total})`)
+            .join(" · ");
+    }, [caso.repeticiones]);
+
+
+    const manejarLlamadaCabina = async () => {
+        const codigo = codigoAgente ?? getCodigoAgente();
+
+        if (!codigo) {
+            await Swal.fire({
+                icon: "warning",
+                title: "Código requerido",
+                text: "Debes ingresar el código del agente antes de realizar la llamada.",
+                confirmButtonText: "Entendido",
+            });
+            return;
+        }
+
+        onLlamarCabina(ultimoEvento, { codigoAgente: codigo });
+    };
+
 
     return (
         <div
@@ -35,8 +66,12 @@ function CasoCriticoCard({
                         {caso.unidad}
                     </div>
 
-                    <div className="text-[11px] text-red-700 font-semibold truncate">
-                        {caso.combinacion}
+                    <div
+                        className="text-[11px] text-red-700 font-semibold leading-snug
+             break-words whitespace-normal line-clamp-2"
+                        title={textoCombinacion}
+                    >
+                        {textoCombinacion}
                     </div>
                 </div>
 
@@ -55,16 +90,43 @@ function CasoCriticoCard({
 
                 {/* ACCIONES (ESTANDARIZADAS) */}
                 <div className="flex gap-1">
-                    <button
+                    {/*                     <button
                         title="Llamar operador"
-                        onClick={() => onLlamarOperador(ultimoEvento)}
+                        onClick={async () => {
+                            const codigoAgente = getCodigoAgente();
+
+                            if (!codigoAgente) {
+                                Swal.fire({
+                                    icon: "warning",
+                                    title: "Código requerido",
+                                    text: "Debes ingresar el código del agente antes de realizar la llamada.",
+                                    confirmButtonText: "Entendido",
+                                });
+                                return;
+                            }
+
+                            const result = await Swal.fire({
+                                title: "Confirmar llamada",
+                                text: "¿Deseas realizar la llamada al operador?",
+                                icon: "question",
+                                showCancelButton: true,
+                                confirmButtonText: "Sí, llamar",
+                                cancelButtonText: "Cancelar",
+                                confirmButtonColor: "#2563eb", // azul
+                                cancelButtonColor: "#6b7280",  // gris
+                            });
+
+                            if (!result.isConfirmed) return;
+
+                            onLlamarOperador(ultimoEvento, { codigoAgente });
+                        }}
                         className="px-2 py-1 rounded bg-gray-100 text-gray-800 hover:bg-gray-200"
                     >
                         📞
-                    </button>
+                    </button> */}
                     <button
                         title="Llamada a cabina"
-                        onClick={() => onLlamarCabina(ultimoEvento)}
+                        onClick={manejarLlamadaCabina}
                         className="px-2 py-1 rounded bg-green-100 text-green-800 hover:bg-green-200"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
