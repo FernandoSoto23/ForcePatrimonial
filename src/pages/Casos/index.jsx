@@ -1737,4 +1737,3 @@ export default function Casos() {
     </div>
   );
 }
-
