@@ -9,6 +9,9 @@ export default function Login() {
   const [del, setDel] = useState(false);
   const [hover, setHover] = useState(false);
 
+  // ✅ NUEVO: estado de carga
+  const [loading, setLoading] = useState(false);
+
   /* ================= TEXTO ANIMADO ================= */
   useEffect(() => {
     const speed = del ? 40 : 80;
@@ -30,13 +33,20 @@ export default function Login() {
   }, [i, del]);
 
   function handleLogin() {
-    // ✅ En vez de borrar TODO el localStorage, borra solo lo tuyo
+    if (loading) return;
+
+    setLoading(true);
+
+    // ✅ limpiar solo lo necesario
     localStorage.removeItem("wialon_sid");
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("session");
 
-    window.location.href = `${API_URL}/auth/wialon/login`;
+    // pequeña pausa visual para UX
+    setTimeout(() => {
+      window.location.href = `${API_URL}/auth/wialon/login`;
+    }, 600);
   }
 
   return (
@@ -45,7 +55,7 @@ export default function Login() {
         position: "fixed",
         inset: 0,
         display: "flex",
-        background: "#020617",
+        background: "radial-gradient(circle at 20% 20%, #020617, #000)",
         overflow: "hidden",
       }}
     >
@@ -80,7 +90,7 @@ export default function Login() {
             }}
           />
 
-          {/* ===== PANEL GLASS iOS ===== */}
+          {/* ===== PANEL GLASS ===== */}
           <div
             style={{
               position: "relative",
@@ -99,7 +109,7 @@ export default function Login() {
               overflow: "hidden",
             }}
           >
-            {/* ===== REFLEJO ANIMADO ===== */}
+            {/* REFLEJO */}
             <div
               style={{
                 position: "absolute",
@@ -121,22 +131,41 @@ export default function Login() {
               Accede al panel con tu cuenta de Wialon
             </p>
 
+            {/* ===== BOTÓN ===== */}
             <button
               onClick={handleLogin}
+              disabled={loading}
               style={{
                 width: "100%",
                 padding: "14px 0",
-                background: "#000",
+                background: loading
+                  ? "linear-gradient(90deg, #0f172a, #020617)"
+                  : "#000",
                 color: "#fff",
                 borderRadius: 14,
                 fontWeight: 600,
                 border: "none",
-                cursor: "pointer",
+                cursor: loading ? "not-allowed" : "pointer",
                 boxShadow: "0 10px 30px rgba(0,0,0,0.6)",
+                opacity: loading ? 0.85 : 1,
+                transition: "all 0.3s ease",
               }}
             >
-              Entrar
+              {loading ? "Conectando con Wialon…" : "Entrar"}
             </button>
+
+            {/* LOADER */}
+            {loading && (
+              <div
+                style={{
+                  marginTop: 14,
+                  display: "flex",
+                  justifyContent: "center",
+                }}
+              >
+                <div className="spinner" />
+              </div>
+            )}
 
             <p
               style={{
@@ -183,11 +212,24 @@ export default function Login() {
         />
       </div>
 
-      {/* ===== KEYFRAMES ===== */}
+      {/* ===== CSS ===== */}
       <style>{`
         @keyframes glassMove {
           0% { transform: translateX(-40%) rotate(12deg); }
           100% { transform: translateX(40%) rotate(12deg); }
+        }
+
+        .spinner {
+          width: 22px;
+          height: 22px;
+          border: 3px solid rgba(255,255,255,0.2);
+          border-top-color: #fff;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>

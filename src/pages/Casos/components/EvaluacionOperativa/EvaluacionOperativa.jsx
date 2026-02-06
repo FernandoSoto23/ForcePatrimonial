@@ -1,5 +1,6 @@
 import { useMemo, useEffect } from "react";
 import { generarPreguntas } from "./preguntasEvaluacion";
+
 export default function EvaluacionOperativa({
   value,
   onChange,
@@ -12,17 +13,6 @@ export default function EvaluacionOperativa({
     });
   }, [value, contextoEvento]);
 
-  const marcarEjecutado = (key) => {
-    onChange({
-      ...value,
-      [key]: {
-        ...(value[key] || {}),
-        ejecutado: true,
-        horaEjecucion: new Date().toISOString(),
-      },
-    });
-  };
-
   const responder = (key, respuesta) => {
     onChange({
       ...value,
@@ -34,9 +24,16 @@ export default function EvaluacionOperativa({
       },
     });
   };
+
+  // 🔥 Console log del JSON de respuestas
+  useEffect(() => {
+    console.log("🟢 Respuestas actuales (JSON):", JSON.stringify(value, null, 2));
+  }, [value]);
+
+  // 🧹 Limpieza automática de respuestas inválidas
   useEffect(() => {
     const preguntasActuales = generarPreguntas(contextoEvento);
-    const keysValidas = new Set(preguntasActuales.map(p => p.key));
+    const keysValidas = new Set(preguntasActuales.map((p) => p.key));
 
     const limpio = Object.fromEntries(
       Object.entries(value || {}).filter(([k]) => keysValidas.has(k))
@@ -84,8 +81,8 @@ export default function EvaluacionOperativa({
                         ? "Riesgo"
                         : "Sin riesgo"
                       : respuesta
-                        ? "Sí"
-                        : "No"}
+                      ? "Sí"
+                      : "No"}
                   </span>
                 </div>
               )}
@@ -116,7 +113,6 @@ export default function EvaluacionOperativa({
             </div>
           );
         })}
-
       </div>
     </div>
   );

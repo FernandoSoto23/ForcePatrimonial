@@ -7,6 +7,7 @@ import {
   useReducer,
 } from "react";
 import { getCodigoAgente, setCodigoAgente } from "../../utils/codigoAgente";
+import Select from "react-select";
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import { useUnits } from "../../context/UnitsContext";
@@ -18,7 +19,7 @@ import EvaluacionOperativa from "./components/EvaluacionOperativa/EvaluacionOper
 import { tsCaso, esPanico } from "./utils/casos";
 import CasoActivoCard from "./components/CasoActivoCard";
 import CasoCriticoCard from "./components/CasoCriticoCard";
-import { PhoneIcon } from "@heroicons/react/24/solid"
+import { PhoneIcon } from "@heroicons/react/24/solid";
 import {
   normalize,
   safeDecode,
@@ -54,13 +55,147 @@ const SLTA_LABEL = {
   T: "Taller",
   A: "Agencia",
 };
+
 const MOTIVOS_CIERRE = [
-  { value: "FALSA_ALARMA", label: "Falsa alarma" },
-  { value: "EVENTO_ATENDIDO", label: "Evento atendido sin novedad" },
-  { value: "CONTACTO_CON_OPERADOR", label: "Contacto con operador / chofer" },
-  { value: "PROBLEMA_TECNICO", label: "Problema técnico del dispositivo" },
-  { value: "DESVIO_JUSTIFICADO", label: "Desvío de ruta justificado" },
-  { value: "DETENCION_AUTORIZADA", label: "Detención autorizada" },
+  { value: "Falsa alarma", label: "Falsa alarma" },
+  {
+    value: "Evento atendido sin novedad",
+    label: "Evento atendido sin novedad",
+  },
+  {
+    value: "Contacto con operador / chofer",
+    label: "Contacto con operador / chofer",
+  },
+  {
+    value: "Unidad localizada sin novedad",
+    label: "Unidad localizada sin novedad",
+  },
+  {
+    value: "Unidad en zona segura / sucursal",
+    label: "Unidad en zona segura / sucursal",
+  },
+
+  { value: "Detención autorizada", label: "Detención autorizada" },
+  {
+    value: "Parada por descanso / alimentos",
+    label: "Parada por descanso / alimentos",
+  },
+  {
+    value: "Parada por carga/descarga autorizada",
+    label: "Parada por carga/descarga autorizada",
+  },
+
+  { value: "Desvío de ruta justificado", label: "Desvío de ruta justificado" },
+  {
+    value: "Cambio de ruta autorizado por logística",
+    label: "Cambio de ruta autorizado por logística",
+  },
+
+  {
+    value: "Sin señal temporal recuperada",
+    label: "Sin señal temporal recuperada",
+  },
+  {
+    value: "Sin señal por zona sin cobertura",
+    label: "Sin señal por zona sin cobertura",
+  },
+  {
+    value: "Problema técnico del dispositivo",
+    label: "Problema técnico del dispositivo",
+  },
+  {
+    value: "Falla de GPS / equipo sin reporte",
+    label: "Falla de GPS / equipo sin reporte",
+  },
+  {
+    value: "Falla de energía / batería desconectada",
+    label: "Falla de energía / batería desconectada",
+  },
+  {
+    value: "Mantenimiento / taller autorizado",
+    label: "Mantenimiento / taller autorizado",
+  },
+
+  {
+    value: "Activación de botón de pánico falsa",
+    label: "Activación de botón de pánico falsa",
+  },
+  {
+    value: "Botón de pánico activado por error",
+    label: "Botón de pánico activado por error",
+  },
+
+  {
+    value: "Evento escalado a autoridades",
+    label: "Evento escalado a autoridades",
+  },
+  {
+    value: "Evento escalado a coordinación de seguridad",
+    label: "Evento escalado a coordinación de seguridad",
+  },
+  {
+    value: "Evento escalado a logística",
+    label: "Evento escalado a logística",
+  },
+
+  // 🔥 RECUPERACIÓN / ROBO
+  {
+    value: "Robo confirmado (unidad sustraída)",
+    label: "Robo confirmado (unidad sustraída)",
+  },
+  {
+    value: "Robo frustrado (sin pérdida)",
+    label: "Robo frustrado (sin pérdida)",
+  },
+  {
+    value: "Unidad recuperada por autoridades",
+    label: "Unidad recuperada por autoridades",
+  },
+  {
+    value: "Unidad recuperada por seguridad interna",
+    label: "Unidad recuperada por seguridad interna",
+  },
+  {
+    value: "Unidad recuperada (sin detenido)",
+    label: "Unidad recuperada (sin detenido)",
+  },
+  {
+    value: "Unidad recuperada con detenido",
+    label: "Unidad recuperada con detenido",
+  },
+  { value: "Carga recuperada", label: "Carga recuperada" },
+  {
+    value: "Carga recuperada parcialmente",
+    label: "Carga recuperada parcialmente",
+  },
+  { value: "Pérdida total de carga", label: "Pérdida total de carga" },
+  {
+    value: "Unidad no recuperada (pendiente)",
+    label: "Unidad no recuperada (pendiente)",
+  },
+
+  // 🚨 INCIDENTES VARIOS
+  { value: "Accidente vial", label: "Accidente vial" },
+  { value: "Incidente mecánico", label: "Incidente mecánico" },
+  {
+    value: "Operador lesionado / emergencia médica",
+    label: "Operador lesionado / emergencia médica",
+  },
+  {
+    value: "Operador detenido por autoridad",
+    label: "Operador detenido por autoridad",
+  },
+
+  // 📌 DOCUMENTACIÓN
+  {
+    value: "Evento documentado en bitácora",
+    label: "Evento documentado en bitácora",
+  },
+  {
+    value: "Evento cerrado por instrucción de supervisión",
+    label: "Evento cerrado por instrucción de supervisión",
+  },
+
   { value: "OTRO", label: "Otro (requiere observación)" },
 ];
 const MOTIVOS_CIERRE_ALERTA = [
@@ -160,7 +295,7 @@ function casosReducer(state, action) {
 export default function Casos() {
   /* VARIABLES DE ESTADO */
   /* USE STATE */
-
+  const [busquedaMotivo, setBusquedaMotivo] = useState("");
   const [filtroTipoAlerta, setFiltroTipoAlerta] = useState("TODOS");
   const [casos, dispatchCasos] = useReducer(casosReducer, {});
   const sirena = useRef(null);
@@ -191,7 +326,6 @@ export default function Casos() {
     detenida: false,
     sinSenal: false,
   });
-
 
   const [modalLlamadaAbierto, setModalLlamadaAbierto] = useState(false);
   const [eventoLlamada, setEventoLlamada] = useState(null);
@@ -240,7 +374,13 @@ export default function Casos() {
     }),
     [conteoPorTipo],
   );
+  const motivosFiltrados = useMemo(() => {
+    const q = busquedaMotivo.trim().toLowerCase();
 
+    if (!q) return MOTIVOS_CIERRE;
+
+    return MOTIVOS_CIERRE.filter((m) => m.label.toLowerCase().includes(q));
+  }, [busquedaMotivo]);
   const tiposDisponibles = Object.keys(conteoPorTipo);
 
   /* FUNCIONES */
@@ -503,9 +643,7 @@ export default function Casos() {
     setObservacionesCierre("");
 
     // 🔹 evaluaciones
-    setEvaluacionCritica(
-      Object.fromEntries(PREGUNTAS_EVALUACION.map((p) => [p.key, null])),
-    );
+    setEvaluacionCritica({});
 
     // 🔹 protocolos
     resetearProtocolos();
@@ -540,15 +678,16 @@ export default function Casos() {
       alerta: caso.eventos[0],
     });
   }, []);
-  const llamarCabina = useCallback((evento) => {
-    if (modalLlamadaAbierto) return;
+  const llamarCabina = useCallback(
+    (evento) => {
+      if (modalLlamadaAbierto) return;
 
-
-    setEventoLlamada(evento);
-    setModalLlamadaAbierto(true);
-    llamadaActivaRef.current = true;
-  }, [modalLlamadaAbierto]);
-
+      setEventoLlamada(evento);
+      setModalLlamadaAbierto(true);
+      llamadaActivaRef.current = true;
+    },
+    [modalLlamadaAbierto],
+  );
 
   const llamarOperadorCb = useCallback(async (evento, opciones = {}) => {
     try {
@@ -591,7 +730,6 @@ export default function Casos() {
       setCodigoInput(codigoGuardado);
     }
   }, []);
-
 
   useEffect(() => {
     if (!idCriticoFijo) return;
@@ -790,7 +928,6 @@ export default function Casos() {
         <PhoneIcon className="w-5 h-5" />
       </button>
 
-
       {mostrarCodigo && (
         <div
           className="
@@ -812,9 +949,7 @@ export default function Casos() {
             <div className="text-xs uppercase tracking-widest text-blue-400">
               Seguridad
             </div>
-            <div className="text-sm font-semibold">
-              Código del agente
-            </div>
+            <div className="text-sm font-semibold">Código del agente</div>
           </div>
 
           {/* INPUT */}
@@ -896,9 +1031,6 @@ export default function Casos() {
         </div>
       )}
 
-
-
-
       <div
         className={`p-6 bg-gray-100 min-h-screen grid grid-cols-2 gap-6 text-black 
   ${casoCriticoSeleccionado ? "pointer-events-none" : ""}
@@ -959,10 +1091,11 @@ export default function Casos() {
                     <button
                       onClick={() => setFiltroTipoAlerta("TODOS")}
                       className={`px-3 py-1 rounded-full text-[11px] font-semibold border
-                ${filtroTipoAlerta === "TODOS"
-                          ? "bg-black text-white border-black"
-                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                        }`}
+                ${
+                  filtroTipoAlerta === "TODOS"
+                    ? "bg-black text-white border-black"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                }`}
                     >
                       TODOS ({casoCriticoSeleccionado.eventos.length})
                     </button>
@@ -972,10 +1105,11 @@ export default function Casos() {
                         key={tipo}
                         onClick={() => setFiltroTipoAlerta(tipo)}
                         className={`px-3 py-1 rounded-full text-[11px] font-semibold border
-                  ${filtroTipoAlerta === tipo
-                            ? "bg-red-600 text-white border-red-600"
-                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                          }`}
+                  ${
+                    filtroTipoAlerta === tipo
+                      ? "bg-red-600 text-white border-red-600"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                  }`}
                       >
                         {tipo} ({conteoPorTipo[tipo]})
                       </button>
@@ -1051,19 +1185,35 @@ export default function Casos() {
                     Motivo de cierre <span className="text-red-500">*</span>
                   </label>
 
-                  <select
-                    value={motivoCierre}
-                    onChange={(e) => setMotivoCierre(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-2 text-xs bg-white"
-                  >
-                    <option value="">Selecciona un motivo</option>
-                    {MOTIVOS_CIERRE.map((m) => (
-                      <option key={m.value} value={m.value}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    options={MOTIVOS_CIERRE.map((m) => ({
+                      value: m.value,
+                      label: m.label,
+                    }))}
+                    value={
+                      motivoCierre
+                        ? { value: motivoCierre, label: motivoCierre }
+                        : null
+                    }
+                    onChange={(opt) => setMotivoCierre(opt?.value || "")}
+                    placeholder="Selecciona motivo de cierre..."
+                    isSearchable
+                    className="text-xs"
+                    styles={{
+                      control: (base) => ({
+                        ...base,
+                        fontSize: "12px",
+                        minHeight: "38px",
+                      }),
+                      menu: (base) => ({
+                        ...base,
+                        fontSize: "12px",
+                        zIndex: 9999,
+                      }),
+                    }}
+                  />
 
+                  {/* ✍️ OBSERVACIONES SI ES OTRO */}
                   {motivoCierre === "OTRO" && (
                     <textarea
                       value={observacionesCierre}
@@ -1099,12 +1249,22 @@ export default function Casos() {
                     }
 
                     // 🚫 2) VALIDAR EVALUACIÓN
-                    const faltantes = preguntasActuales.filter(
-                      (p) => !evaluacionCritica[p.key],
-                    );
+                    const preguntasVisibles = preguntasActuales.filter((p) => {
+                      if (!p.dependsOn) return true;
+                      return (
+                        evaluacionCritica[p.dependsOn]?.respuesta === p.showIf
+                      );
+                    });
+
+                    const faltantes = preguntasVisibles.filter((p) => {
+                      const r = evaluacionCritica[p.key];
+                      return !r || typeof r.respuesta !== "boolean";
+                    });
 
                     if (faltantes.length > 0) {
-                      toast.error("Debes completar toda la evaluación operativa");
+                      toast.error(
+                        "Debes completar toda la evaluación operativa",
+                      );
                       return;
                     }
 
@@ -1129,9 +1289,26 @@ export default function Casos() {
                     const nombreUsuario = usuario?.nombre ?? usuario?.name;
 
                     if (!idUsuario || !nombreUsuario) {
-                      toast.error("Usuario inválido, no se puede cerrar el caso");
+                      toast.error(
+                        "Usuario inválido, no se puede cerrar el caso",
+                      );
                       return;
                     }
+
+                    const cierreJSON = {
+                      motivo: motivoCierre,
+                      observaciones: observacionesCierre || "",
+                      evaluacionOperativa: evaluacionCritica,
+                      evaluacionTexto: evaluacionTexto,
+                      unidad: casoCriticoSeleccionado.unidad,
+                      idCaso: casoCriticoSeleccionado.id,
+                      alertas: casoCriticoSeleccionado.eventos.map((e) => e.id),
+                      usuario: {
+                        id: idUsuario,
+                        nombre: nombreUsuario,
+                      },
+                      fechaCierreISO: new Date().toISOString(),
+                    };
 
                     try {
                       const resp = await fetch(
@@ -1145,21 +1322,14 @@ export default function Casos() {
                             ),
                             id_usuario: idUsuario,
                             nombre_usuario: nombreUsuario,
-                            detalle_cierre: `
-Motivo: ${motivoCierre}
-${observacionesCierre ? `Observaciones: ${observacionesCierre}` : ""}
-
-Evaluación operativa:
-${evaluacionTexto}
-
-Cierre realizado por: ${nombreUsuario}
-Fecha cierre: ${new Date().toLocaleString()}
-Unidad: ${casoCriticoSeleccionado.unidad}
-`.trim(),
+                            detalle_cierre: JSON.stringify(cierreJSON, null, 2), // ✅ AQUÍ LO PEGAS
                           }),
                         },
                       );
-
+                      const text = await resp.text();
+                      console.log("RESP STATUS:", resp.status);
+                      console.log("RESP BODY:", text);
+                      console.log(resp);
                       if (!resp.ok) {
                         const errorText = await resp.text();
                         throw new Error(errorText);
@@ -1178,11 +1348,12 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                       observacionesCierre.trim().length < 10)
                   }
                   className={`text-xs px-4 py-1 rounded text-white
-    ${!motivoCierre ||
-                      (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-red-600 hover:bg-red-700"
-                    }`}
+    ${
+      !motivoCierre ||
+      (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
+        ? "bg-gray-400 cursor-not-allowed"
+        : "bg-red-600 hover:bg-red-700"
+    }`}
                 >
                   Cerrar caso crítico
                 </button>
@@ -1250,30 +1421,35 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                   Motivo de cierre <span className="text-red-500">*</span>
                 </label>
 
-                <select
-                  value={motivoCierre}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setMotivoCierre(value);
-
-                    const motivo = MOTIVOS_CIERRE_ALERTA.find(
-                      (m) => m.value === value,
-                    );
-
-                    if (motivo) {
-                      setDetalleCierre(motivo.body);
-                    }
+                <Select
+                  options={MOTIVOS_CIERRE.map((m) => ({
+                    value: m.value,
+                    label: m.label,
+                  }))}
+                  value={
+                    motivoCierre
+                      ? { value: motivoCierre, label: motivoCierre }
+                      : null
+                  }
+                  onChange={(opt) => setMotivoCierre(opt?.value || "")}
+                  placeholder="Selecciona motivo de cierre..."
+                  isSearchable
+                  className="text-xs"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      fontSize: "12px",
+                      minHeight: "38px",
+                    }),
+                    menu: (base) => ({
+                      ...base,
+                      fontSize: "12px",
+                      zIndex: 9999,
+                    }),
                   }}
-                  className="w-full border border-gray-300 rounded-md p-2 text-xs bg-white"
-                >
-                  <option value="">Selecciona un motivo</option>
-                  {MOTIVOS_CIERRE_ALERTA.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
+                />
 
+                {/* ✍️ OBSERVACIONES SI ES OTRO */}
                 {motivoCierre === "OTRO" && (
                   <textarea
                     value={detalleCierre}
@@ -1288,7 +1464,11 @@ Unidad: ${casoCriticoSeleccionado.unidad}
               {/* ACCIONES */}
               <div className="mt-5 flex justify-end gap-2">
                 <button
-                  onClick={() => setCasoSeleccionado(null)}
+                  onClick={() => {
+                    setMotivoCierre("");
+                    setDetalleCierre("");
+                    setCasoSeleccionado(null);
+                  }}
                   className="text-xs bg-gray-300 px-3 py-1 rounded"
                 >
                   Mantener abierto
@@ -1310,14 +1490,53 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                       return;
                     }
 
-                    const confirmar = window.confirm(
-                      "¿Te gustaría cambiar el estado de esta alerta?",
-                    );
+                    // ✅ CONFIRMACIÓN SWEET ALERT
+                    const result = await Swal.fire({
+                      title: "Cerrar alerta",
+                      html: `
+        <p>Estás a punto de cerrar esta <b>alerta</b>.</p>
+        <p>¿Deseas continuar?</p>
+      `,
+                      icon: "warning",
+                      showCancelButton: true,
+                      confirmButtonText: "Sí, cerrar alerta",
+                      cancelButtonText: "Cancelar",
+                      confirmButtonColor: "#16a34a",
+                      cancelButtonColor: "#6b7280",
+                    });
 
-                    if (!confirmar) return;
+                    if (!result.isConfirmed) return;
+
+                    const idUsuario =
+                      usuario?.id_usuario ?? usuario?.id ?? usuario?.sub;
+                    const nombreUsuario = usuario?.nombre ?? usuario?.name;
+
+                    if (!idUsuario || !nombreUsuario) {
+                      toast.error(
+                        "Usuario inválido, no se puede cerrar la alerta",
+                      );
+                      return;
+                    }
+
+                    // ✅ JSON COMPLETO PARA ALERTA NORMAL
+                    const cierreJSON = {
+                      tipoCierre: "ALERTA_NORMAL",
+                      motivo: motivoCierre,
+                      observaciones:
+                        motivoCierre === "OTRO" ? detalleCierre.trim() : "",
+                      unidad: casoSeleccionado.unidad,
+                      idCaso: casoSeleccionado.id,
+                      alerta: casoSeleccionado.eventos[0].id,
+                      tipoAlerta: casoSeleccionado.eventos[0].tipoNorm,
+                      mensaje: casoSeleccionado.eventos[0].mensaje,
+                      usuario: {
+                        id: idUsuario,
+                        nombre: nombreUsuario,
+                      },
+                      fechaCierreISO: new Date().toISOString(),
+                    };
 
                     try {
-                      // ✅ 2) BACKEND PRIMERO
                       const resp = await fetch(`${API_URL}/alertas/cerrar`, {
                         method: "POST",
                         headers: {
@@ -1325,39 +1544,42 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                         },
                         body: JSON.stringify({
                           id_alerta: casoSeleccionado.eventos[0].id,
-                          id_usuario: usuario.id,
-                          nombre_usuario: usuario.name,
-                          detalle_cierre: detalleCierre, // ✅ AQUÍ VA LA NOTA
+                          id_usuario: idUsuario,
+                          nombre_usuario: nombreUsuario,
+
+                          // 🔥 JSON guardado como texto en SQL
+                          detalle_cierre: JSON.stringify(cierreJSON, null, 2),
                         }),
                       });
 
+                      const text = await resp.text();
+                      console.log("RESP STATUS:", resp.status);
+                      console.log("RESP BODY:", text);
+
                       if (!resp.ok) {
-                        const errorText = await resp.text();
-                        throw new Error(errorText || "Error cerrando alerta");
+                        throw new Error(text || "Error cerrando alerta");
                       }
 
-                      // ✅ 3) ACTUALIZAR ESTADO LOCAL SOLO SI BACKEND OK
                       cerrarModalYEliminarCaso(String(casoSeleccionado.id));
-                      toast.success(
-                        `La alerta ${casoSeleccionado.eventos[0].tipo} fue cerrada correctamente`,
-                      );
+                      toast.success("✅ Alerta cerrada correctamente");
                     } catch (error) {
                       console.error("❌ Error cerrando alerta:", error);
-                      toast.error(
-                        "No se pudo cerrar la alerta. Intenta nuevamente.",
-                      );
+                      toast.error("No se pudo cerrar la alerta");
                     }
                   }}
                   disabled={
                     !motivoCierre ||
-                    (motivoCierre === "OTRO" && detalleCierre.trim().length < 10)
+                    (motivoCierre === "OTRO" &&
+                      detalleCierre.trim().length < 10)
                   }
                   className={`text-xs px-3 py-1 rounded text-white
-      ${detalleCierre.trim().length < 50
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-green-600 hover:bg-green-700"
-                    }
-    `}
+    ${
+      !motivoCierre ||
+      (motivoCierre === "OTRO" && detalleCierre.trim().length < 10)
+        ? "bg-gray-400 cursor-not-allowed"
+        : "bg-green-600 hover:bg-green-700"
+    }
+  `}
                 >
                   Cerrar caso
                 </button>
@@ -1405,7 +1627,7 @@ Unidad: ${casoCriticoSeleccionado.unidad}
                 extraerVelocidad={extraerVelocidad}
                 extraerMapsUrl={extraerMapsUrl}
                 MensajeExpandable={MensajeExpandable}
-                onLlamarCabina={llamarCabina}   // ✅ ESTA ES LA CLAVE
+                onLlamarCabina={llamarCabina} // ✅ ESTA ES LA CLAVE
               />
             ))}
 

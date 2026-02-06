@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
@@ -18,9 +18,13 @@ export default function MapaBase({
   // ✅ NUEVAS PROPS PARA HISTORIAL
   historyData = [],
   showHistoryRoute = false,
+  selectedStopIndex = null, // ✅ NUEVA PROP para parada seleccionada
 }) {
   const containerRef = useRef(null);
   const hoverPopupRef = useRef(null);
+
+  // ✅ Estado para el panel de información fijo
+  const [fixedPanelInfo, setFixedPanelInfo] = useState(null);
 
   // ✅ ruta de seguimiento
   const followPathRef = useRef([]);
@@ -28,6 +32,9 @@ export default function MapaBase({
 
   // ✅ marcadores de historial
   const historyMarkersRef = useRef([]);
+
+  // ✅ popup de parada seleccionada
+  const stopPopupRef = useRef(null);
 
   // ✅ throttle
   const lastFollowTickRef = useRef(0);
@@ -176,7 +183,7 @@ export default function MapaBase({
       </svg>
     `;
 
-    const img = new Image(26, 26);
+    const img = new Image(32, 32); // ✅ Tamaño medio: 32x32 (antes 26, luego 40)
     img.onload = () => {
       if (!map.hasImage("unit-cone")) {
         map.addImage("unit-cone", img, { sdf: true });
@@ -316,7 +323,7 @@ export default function MapaBase({
   };
 
   /* =========================
-     ✅ HOVER TOOLTIP
+     ✅ HOVER TOOLTIP - MODIFICADO PARA ARRIBA DERECHA
   ========================= */
   const buildGeofenceHoverHTML = ({ name, type }) => {
     return `
@@ -368,7 +375,7 @@ export default function MapaBase({
   };
 
   /* =========================
-     ✅ POPUP FOLLOW (panel)
+     ✅ POPUP FOLLOW (panel) - MODIFICADO PARA ARRIBA DERECHA
   ========================= */
   const buildPopupHTML = ({ name, speed, speedLimit, geoNormal, geoLineal }) => {
     const speedColor = speed > 0 ? "#16a34a" : "#6b7280";
@@ -445,21 +452,14 @@ export default function MapaBase({
       minute: '2-digit'
     });
   };
+
   /* =========================
-     🟡 DIBUJAR PARADAS HISTÓRICAS (WIALON)
+     ✅ CALCULAR PARADAS (PARA TENER LA LISTA)
   ========================= */
-  const drawHistoryStops = (map) => {
-    if (!showHistoryRoute || !historyData.length) {
-      historyStopsLayerAddedRef.current = false;
-      return;
-    }
+  const calculateStops = useMemo(() => {
+    if (!showHistoryRoute || !historyData.length) return [];
 
-
-    // limpiar si ya existían
-    if (map.getLayer("history-stops-layer")) map.removeLayer("history-stops-layer");
-    if (map.getSource("history-stops")) map.removeSource("history-stops");
-
-    const features = [];
+    const stops = [];
     let start = null;
 
     for (let i = 0; i < historyData.length; i++) {
@@ -467,29 +467,57 @@ export default function MapaBase({
       const speed = Number(p.speed ?? p.sp ?? 0);
 
       if (speed <= 2) {
-        if (!start) start = p;
+        if (!start) start = { point: p, startIndex: i };
       } else if (start) {
-        const from = start.time ?? start.t;
+        const from = start.point.time ?? start.point.t;
         const to = p.time ?? p.t;
         const duration = to - from;
 
         if (duration >= 600) {
-          features.push({
-            type: "Feature",
-            geometry: {
-              type: "Point",
-              coordinates: [start.lon ?? start.lng, start.lat],
-            },
-            properties: {
-              duration,
-              from,
-              to,
-            },
+          stops.push({
+            index: stops.length,
+            startIndex: start.startIndex,
+            endIndex: i,
+            lat: start.point.lat,
+            lon: start.point.lon ?? start.point.lng,
+            from,
+            to,
+            duration,
           });
         }
         start = null;
       }
     }
+
+    return stops;
+  }, [historyData, showHistoryRoute]);
+
+  /* =========================
+     🟡 DIBUJAR PARADAS HISTÓRICAS (WIALON) - MODIFICADO PARA ARRIBA DERECHA
+  ========================= */
+  const drawHistoryStops = (map) => {
+    if (!showHistoryRoute || !historyData.length) {
+      historyStopsLayerAddedRef.current = false;
+      return;
+    }
+
+    // limpiar si ya existían
+    if (map.getLayer("history-stops-layer")) map.removeLayer("history-stops-layer");
+    if (map.getSource("history-stops")) map.removeSource("history-stops");
+
+    const features = calculateStops.map(stop => ({
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: [stop.lon, stop.lat],
+      },
+      properties: {
+        stopIndex: stop.index,
+        duration: stop.duration,
+        from: stop.from,
+        to: stop.to,
+      },
+    }));
 
     if (!features.length) return;
 
@@ -510,7 +538,7 @@ export default function MapaBase({
       },
     });
 
-    // hover tipo Wialon
+    // hover tipo Wialon - MODIFICADO PARA ARRIBA DERECHA
     map.on("mouseenter", "history-stops-layer", (e) => {
       map.getCanvas().style.cursor = "pointer";
       const f = e.features[0];
@@ -519,7 +547,8 @@ export default function MapaBase({
       hoverPopupRef.current = new mapboxgl.Popup({
         closeButton: false,
         closeOnClick: false,
-        offset: 12,
+        offset: 15, // ✅ offset para arriba derecha
+        anchor: 'bottom-left' // ✅ anclado abajo izquierda para que aparezca arriba derecha
       })
         .setLngLat(e.lngLat)
         .setHTML(`
@@ -540,11 +569,82 @@ export default function MapaBase({
   };
 
   /* =========================
+     ✅ FOCUS EN PARADA SELECCIONADA - MODIFICADO PARA ARRIBA DERECHA
+  ========================= */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || selectedStopIndex === null || !calculateStops.length) {
+      // Limpiar popup de parada si existe
+      if (stopPopupRef.current) {
+        stopPopupRef.current.remove();
+        stopPopupRef.current = null;
+      }
+      return;
+    }
+
+    const stop = calculateStops.find(s => s.index === selectedStopIndex);
+    if (!stop) return;
+
+    const coords = [stop.lon, stop.lat];
+    const mins = Math.round(stop.duration / 60);
+
+    // Mover el mapa a la parada
+    map.flyTo({
+      center: coords,
+      zoom: 16,
+      duration: 1000,
+    });
+
+    // Crear/actualizar popup de parada - MODIFICADO PARA ARRIBA DERECHA
+    if (stopPopupRef.current) {
+      stopPopupRef.current.remove();
+    }
+
+    stopPopupRef.current = new mapboxgl.Popup({
+      closeButton: true,
+      closeOnClick: false,
+      offset: 15, // ✅ offset para arriba derecha
+      anchor: 'bottom-left' // ✅ anclado abajo izquierda para que aparezca arriba derecha
+    })
+      .setLngLat(coords)
+      .setHTML(`
+        <div style="
+          font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+          padding: 8px 10px;
+          min-width: 220px;
+        ">
+          <div style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+          ">
+            <div style="
+              width: 12px;
+              height: 12px;
+              background: #facc15;
+              border-radius: 50%;
+              border: 2px solid #000;
+            "></div>
+            <strong style="font-size: 14px;">⏸ Parada ${mins}m</strong>
+          </div>
+          <div style="font-size: 12px; color: #374151; line-height: 1.4;">
+            ${formatHistoryTime(stop.from)} — ${formatHistoryTime(stop.to).split(', ')[1]}
+          </div>
+        </div>
+      `)
+      .addTo(map);
+
+    // Limpiar cuando se cierre el popup manualmente
+    stopPopupRef.current.on('close', () => {
+      stopPopupRef.current = null;
+    });
+
+  }, [selectedStopIndex, calculateStops]);
+
+  /* =========================
      ✅ DIBUJAR RUTA HISTÓRICA
   ========================= */
-  console.log("showHistoryRoute:", showHistoryRoute);
-  console.log("historyData length:", historyData.length);
-
   const drawHistoryRoute = (map) => {
     // Limpiar marcadores anteriores
     historyMarkersRef.current.forEach(marker => marker.remove());
@@ -703,7 +803,7 @@ export default function MapaBase({
   };
 
   /* =========================
-     DRAW UNITS
+     DRAW UNITS - MODIFICADO PARA ARRIBA DERECHA
   ========================= */
   const drawUnits = (map) => {
     ensureUnitIcon(map, () => {
@@ -749,7 +849,7 @@ export default function MapaBase({
           source: "units",
           layout: {
             "icon-image": "unit-cone",
-            "icon-size": 0.65,
+            "icon-size": 0.75, // ✅ Tamaño medio: 0.75 (antes 0.65, luego 0.85)
             "icon-rotate": ["get", "heading"],
             "icon-allow-overlap": true,
           },
@@ -761,7 +861,7 @@ export default function MapaBase({
               "#ef4444",
             ],
             "icon-halo-color": "#000000",
-            "icon-halo-width": 0.6,
+            "icon-halo-width": 0.7, // ✅ Halo medio: 0.7 (antes 0.6, luego 0.8)
           },
         });
 
@@ -769,6 +869,7 @@ export default function MapaBase({
           // NO HACER NADA (no popup al click)
         });
 
+        // HOVER DE UNIDADES - MODIFICADO PARA ARRIBA DERECHA
         map.on("mousemove", "units-layer", (e) => {
           const f = e.features?.[0];
           if (!f) return;
@@ -791,7 +892,8 @@ export default function MapaBase({
             hoverPopupRef.current = new mapboxgl.Popup({
               closeButton: false,
               closeOnClick: false,
-              offset: [0, -18],
+              offset: 15, // ✅ offset para arriba derecha
+              anchor: 'bottom-left' // ✅ anclado abajo izquierda para que aparezca arriba derecha
             });
           }
 
@@ -848,7 +950,7 @@ export default function MapaBase({
   };
 
   /* =========================
-     GEOCERCAS LINEALES
+     GEOCERCAS LINEALES - MODIFICADO PARA ARRIBA DERECHA
   ========================= */
   const drawGeocercasLineales = (map) => {
     if (!geocercasLinealesGeoJSON) return;
@@ -873,7 +975,7 @@ export default function MapaBase({
       });
     }
 
-    // HOVER GEOCERCAS LINEALES
+    // HOVER GEOCERCAS LINEALES - MODIFICADO PARA ARRIBA DERECHA
     map.on("mousemove", "geocercas-lineales-layer", (e) => {
       const f = e.features?.[0];
       if (!f) return;
@@ -886,7 +988,8 @@ export default function MapaBase({
         hoverPopupRef.current = new mapboxgl.Popup({
           closeButton: false,
           closeOnClick: false,
-          offset: [0, -10],
+          offset: 15, // ✅ offset para arriba derecha
+          anchor: 'bottom-left' // ✅ anclado abajo izquierda para que aparezca arriba derecha
         });
       }
 
@@ -995,7 +1098,7 @@ export default function MapaBase({
   };
 
   /* =========================
-     ✅ FOLLOW (POPUP COMO SIEMPRE)
+     ✅ FOLLOW (PANEL FIJO ARRIBA DERECHA)
   ========================= */
   const followUnitTick = (map) => {
     if (!followUnitId) return;
@@ -1025,21 +1128,9 @@ export default function MapaBase({
     updateFollowRouteSource(map);
 
     if (!showInfoPopup) {
-      popupHiddenByToggleRef.current = true;
-      closingBecauseHideRef.current = true;
-
-      if (popupRef.current) {
-        closingByProgramRef.current = true;
-        popupRef.current.remove();
-        popupRef.current = null;
-        closingByProgramRef.current = false;
-      }
-
-      closingBecauseHideRef.current = false;
+      setFixedPanelInfo(null);
       return;
     }
-
-    popupHiddenByToggleRef.current = false;
 
     const id = String(followUnitId);
     const name = unitNameById.get(id) || "Unidad";
@@ -1056,28 +1147,14 @@ export default function MapaBase({
       lastGeoResultRef.current = { geoNormal, geoLineal };
     }
 
-    const html = buildPopupHTML({ name, speed, speedLimit, geoNormal, geoLineal });
-
-    if (popupRef.current) {
-      closingByProgramRef.current = true;
-      popupRef.current.setLngLat(coords).setHTML(html);
-      closingByProgramRef.current = false;
-    } else {
-      popupRef.current = new mapboxgl.Popup()
-        .setLngLat(coords)
-        .setHTML(html)
-        .addTo(map);
-
-      popupRef.current.on("close", () => {
-        if (closingByProgramRef.current) return;
-        if (popupHiddenByToggleRef.current) return;
-        if (closingBecauseHideRef.current) return;
-
-        setFollowUnitId(null);
-        clearFollowRoute(map);
-        popupRef.current = null;
-      });
-    }
+    // ✅ Actualizar panel fijo
+    setFixedPanelInfo({
+      name,
+      speed,
+      speedLimit,
+      geoNormal,
+      geoLineal,
+    });
   };
 
   /* =========================
@@ -1111,13 +1188,14 @@ export default function MapaBase({
         drawGeocercasLineales(map);
         drawUnits(map);
         drawHistoryRoute(map); // ✅
-        drawHistoryStops(map); // ✅ AQUÍ
+        drawHistoryStops(map); // ✅
         if (followUnitId) followUnitTick(map);
       });
     });
 
     return () => {
       historyMarkersRef.current.forEach(marker => marker.remove());
+      if (stopPopupRef.current) stopPopupRef.current.remove();
       map.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1137,7 +1215,7 @@ export default function MapaBase({
         drawGeocercas(map);
         drawGeocercasLineales(map);
         drawUnits(map);
-        drawHistoryRoute(map); // ✅ AGREGAR
+        drawHistoryRoute(map); // ✅
 
         if (followUnitId) {
           ensureFollowRoute(map);
@@ -1169,7 +1247,7 @@ export default function MapaBase({
 
     runWhenReady(map, () => {
       drawHistoryRoute(map);
-      drawHistoryStops(map); // ✅ AQUÍ TAMBIÉN
+      drawHistoryStops(map); // ✅
     });
   }, [historyData, showHistoryRoute]);
 
@@ -1184,14 +1262,7 @@ export default function MapaBase({
     runWhenReady(map, () => {
       if (!followUnitId) {
         clearFollowRoute(map);
-
-        if (popupRef?.current) {
-          closingByProgramRef.current = true;
-          popupRef.current.remove();
-          popupRef.current = null;
-          closingByProgramRef.current = false;
-        }
-
+        setFixedPanelInfo(null); // ✅ Limpiar panel fijo
         return;
       }
 
@@ -1224,5 +1295,158 @@ export default function MapaBase({
     });
   }, [geocercasLinealesGeoJSON?.features?.length]);
 
-  return <div ref={containerRef} className="w-full h-full" />;
+  return (
+    <div ref={containerRef} className="w-full h-full relative">
+      {/* ✅ PANEL FIJO ARRIBA DERECHA */}
+      {fixedPanelInfo && showInfoPopup && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '20px',
+            right: '60px',
+            zIndex: 1000,
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            minWidth: '260px',
+            maxWidth: '320px',
+            fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
+          }}
+        >
+          {/* Header con botón cerrar */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 14px',
+              borderBottom: '1px solid #e5e7eb',
+            }}
+          >
+            <div style={{ fontWeight: 800, fontSize: '15px', color: '#111827' }}>
+              {fixedPanelInfo.name || 'Unidad'}
+            </div>
+            <button
+              onClick={() => {
+                setFollowUnitId(null);
+                const map = mapRef.current;
+                if (map) clearFollowRoute(map);
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '20px',
+                color: '#6b7280',
+                padding: '0',
+                lineHeight: '1',
+              }}
+            >
+              ×
+            </button>
+          </div>
+
+          {/* Contenido */}
+          <div style={{ padding: '12px 14px' }}>
+            {/* Velocidad */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '10px',
+              }}
+            >
+              <span style={{ fontSize: '13px', color: '#374151' }}>
+                🚚 Velocidad
+              </span>
+              <div
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  padding: '4px 10px',
+                  borderRadius: '999px',
+                  background:
+                    fixedPanelInfo.speed > 0 ? '#dcfce7' : '#f3f4f6',
+                  color: fixedPanelInfo.speed > 0 ? '#16a34a' : '#6b7280',
+                }}
+              >
+                {fixedPanelInfo.speed} km/h
+              </div>
+            </div>
+
+            {/* Límite de velocidad */}
+            {fixedPanelInfo.speedLimit != null && (
+              <div
+                style={{
+                  fontSize: '12px',
+                  color: '#374151',
+                  marginBottom: '10px',
+                  padding: '6px 10px',
+                  backgroundColor: '#f9fafb',
+                  borderRadius: '6px',
+                }}
+              >
+                ⚠️ Límite: <strong>{fixedPanelInfo.speedLimit}</strong> km/h
+                {fixedPanelInfo.speed > fixedPanelInfo.speedLimit && (
+                  <span
+                    style={{
+                      marginLeft: '8px',
+                      color: '#ef4444',
+                      fontWeight: 800,
+                    }}
+                  >
+                    🚨 Exceso
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Estado de geocerca */}
+            <div
+              style={{
+                fontSize: '12px',
+                fontWeight: 700,
+                marginBottom: '8px',
+                color:
+                  fixedPanelInfo.geoNormal || fixedPanelInfo.geoLineal
+                    ? '#16a34a'
+                    : '#ef4444',
+              }}
+            >
+              {fixedPanelInfo.geoNormal || fixedPanelInfo.geoLineal
+                ? '✓ Dentro de geocerca'
+                : '✗ Fuera de geocerca'}
+            </div>
+
+            {/* Detalles de geocerca */}
+            <div
+              style={{
+                fontSize: '12px',
+                color: '#374151',
+                lineHeight: '1.5',
+                backgroundColor: '#f9fafb',
+                padding: '8px 10px',
+                borderRadius: '6px',
+              }}
+            >
+              {fixedPanelInfo.geoNormal && (
+                <div style={{ marginBottom: '4px' }}>
+                  <strong>📍 Geocerca:</strong> {fixedPanelInfo.geoNormal}
+                </div>
+              )}
+              {fixedPanelInfo.geoLineal && (
+                <div>
+                  <strong>📏 Lineal:</strong> {fixedPanelInfo.geoLineal}
+                </div>
+              )}
+              {!fixedPanelInfo.geoNormal && !fixedPanelInfo.geoLineal && (
+                <div style={{ color: '#9ca3af' }}>Sin geocerca asignada</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

@@ -1,10 +1,16 @@
 import { normalize } from "../../Casos/utils/mensajes";
 import { useMemo, useState } from "react";
+
 /* ==========================
-COMPONENTE PRINCIPAL
+   COMPONENTE PRINCIPAL
 ========================== */
 
-export default function AlertasTable({ data, loading }) {
+export default function AlertasTable({ data = [], loading }) {
+
+    /* ==========================
+       HOOKS (SIEMPRE ARRIBA)
+    ========================== */
+
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
 
@@ -12,22 +18,12 @@ export default function AlertasTable({ data, loading }) {
     const [filtroTipo, setFiltroTipo] = useState("");
     const [filtroMonitorista, setFiltroMonitorista] = useState("");
     const [filtroMotivo, setFiltroMotivo] = useState("");
-    if (loading) {
-        return (
-            <div className="text-sm text-gray-500">
-                Cargando historial de alertas…
-            </div>
-        );
-    }
 
-    if (!data || data.length === 0) {
-        return (
-            <div className="text-sm text-gray-500">
-                No hay historial de alertas para este usuario
-            </div>
-        );
-    }
-    function obtenerColumnasEvaluacion(data) {
+    /* ==========================
+       COLUMNAS DINÁMICAS
+    ========================== */
+
+    const columnasEvaluacion = useMemo(() => {
         const set = new Set();
 
         data.forEach(a => {
@@ -35,45 +31,28 @@ export default function AlertasTable({ data, loading }) {
                 if (typeof a.detalle_cierre === "string") {
                     const d = JSON.parse(a.detalle_cierre);
                     const evalOp = d?.evaluacionOperativa;
-
                     if (evalOp) {
                         Object.keys(evalOp).forEach(k => set.add(k));
                     }
                 }
-            } catch { }
+            } catch {}
         });
 
         return Array.from(set);
-    }
-    function labelEvaluacion(key) {
-        const labels = {
-            revisionCCTV: "Revisión CCTV",
-            contactoOperador: "Contacto operador",
-            accionesRecuperacion: "Acciones recuperación",
-            seguimientoSinSenal: "Seguimiento sin señal",
-            operativoAutoridades: "Operativo autoridades"
-        };
+    }, [data]);
 
-        if (labels[key]) return labels[key];
+    /* ==========================
+       FILTROS
+    ========================== */
 
-        // fallback automático: usa la llave tal cual viene
-        return key
-            .replace(/([A-Z])/g, " $1")
-            .replace(/^./, c => c.toUpperCase());
-    }
-
-    const columnasEvaluacion = obtenerColumnasEvaluacion(data);
     const dataFiltrada = useMemo(() => {
         return data.filter(a => {
-            const detalle = (() => {
-                try {
-                    return typeof a.detalle_cierre === "string"
-                        ? JSON.parse(a.detalle_cierre)
-                        : null;
-                } catch {
-                    return null;
-                }
-            })();
+            let detalle = null;
+            try {
+                detalle = typeof a.detalle_cierre === "string"
+                    ? JSON.parse(a.detalle_cierre)
+                    : null;
+            } catch {}
 
             return (
                 (!filtroUnidad || a.unidad?.toLowerCase().includes(filtroUnidad.toLowerCase())) &&
@@ -84,14 +63,37 @@ export default function AlertasTable({ data, loading }) {
         });
     }, [data, filtroUnidad, filtroTipo, filtroMonitorista, filtroMotivo]);
 
-    const totalPaginas = Math.ceil(dataFiltrada.length / pageSize);
+    /* ==========================
+       PAGINACIÓN
+    ========================== */
+
+    const totalPaginas = Math.max(1, Math.ceil(dataFiltrada.length / pageSize));
 
     const dataPaginada = useMemo(() => {
         const start = (page - 1) * pageSize;
         return dataFiltrada.slice(start, start + pageSize);
     }, [dataFiltrada, page, pageSize]);
+
+    /* ==========================
+       RETURNS CONDICIONALES
+    ========================== */
+
+    if (loading) {
+        return <div className="text-sm text-gray-500">Cargando historial de alertas…</div>;
+    }
+
+    if (!data.length) {
+        return <div className="text-sm text-gray-500">No hay historial de alertas para este usuario</div>;
+    }
+
+    /* ==========================
+       RENDER
+    ========================== */
+
     return (
         <div className="overflow-x-auto bg-white border rounded-lg shadow">
+
+            {/* FILTROS */}
             <div className="flex flex-wrap gap-3 p-3 border-b bg-gray-50 text-xs">
 
                 <input
@@ -161,13 +163,12 @@ export default function AlertasTable({ data, loading }) {
                     }}
                 >
                     {[10, 25, 50, 100].map(n => (
-                        <option key={n} value={n}>
-                            {n} registros
-                        </option>
+                        <option key={n} value={n}>{n} registros</option>
                     ))}
                 </select>
             </div>
 
+            {/* TABLA */}
             <table className="min-w-max text-xs border-collapse">
                 <thead className="sticky top-0 bg-gray-100 z-10">
                     <tr>
@@ -175,29 +176,24 @@ export default function AlertasTable({ data, loading }) {
                         <Th>Unidad</Th>
                         <Th>Tipo</Th>
                         <Th>Monitorista</Th>
-                        <Th>Fecha incidente</Th>
-                        <Th>Hora incidente</Th>
+                        <Th>Fecha</Th>
+                        <Th>Hora</Th>
                         <Th>Geocerca</Th>
                         <Th>Motivo</Th>
 
-                        {/* Evaluación operativa */}
                         {columnasEvaluacion.map(key => (
-                            <Th key={key}>
-                                {labelEvaluacion(key)}
-                            </Th>
+                            <Th key={key}>{labelEvaluacion(key)}</Th>
                         ))}
 
-                        {/* SLA */}
                         <Th>Inicio atención</Th>
                         <Th>Fin atención</Th>
                         <Th>Tiempo respuesta</Th>
-
                         <Th>Mensaje</Th>
                     </tr>
                 </thead>
 
                 <tbody>
-                    {dataPaginada.map((a) => {
+                    {dataPaginada.map(a => {
                         let detalle = null;
                         let evalOp = null;
                         let tiempo = null;
@@ -208,58 +204,28 @@ export default function AlertasTable({ data, loading }) {
                                 evalOp = detalle?.evaluacionOperativa;
                                 tiempo = calcularTiempoRespuesta(evalOp, a);
                             }
-                        } catch { }
+                        } catch {}
 
                         return (
-                            <tr
-                                key={a.id}
-                                className="border-t hover:bg-gray-50"
-                            >
+                            <tr key={a.id} className="border-t hover:bg-gray-50">
                                 <Td>{a.id}</Td>
-
-                                <Td className="font-semibold">
-                                    {a.unidad}
-                                </Td>
-
-                                <Td className="uppercase text-blue-700">
-                                    {normalize(a.tipo)}
-                                </Td>
+                                <Td className="font-semibold">{a.unidad}</Td>
+                                <Td className="uppercase text-blue-700">{normalize(a.tipo)}</Td>
                                 <Td>{a.nombre_usuario || "—"}</Td>
                                 <Td>{fmtFecha(a.fecha_incidente)}</Td>
-
                                 <Td>{fmtHora(a.hora_incidente)}</Td>
                                 <Td>{a.geocerca_slta || "—"}</Td>
-                                <Td>
-                                    {detalle?.motivo || "—"}
-                                </Td>
-                                {/* Evaluación operativa */}
+                                <Td>{detalle?.motivo || "—"}</Td>
+
                                 {columnasEvaluacion.map(key => (
-                                    <Td key={key}>
-                                        {fmtRespuesta(evalOp?.[key])}
-                                    </Td>
+                                    <Td key={key}>{fmtRespuesta(evalOp?.[key])}</Td>
                                 ))}
 
-                                {/* SLA */}
-                                <Td>
-                                    {tiempo?.inicio
-                                        ? fmtFechaHora(tiempo.inicio)
-                                        : "—"}
-                                </Td>
+                                <Td>{tiempo?.inicio ? fmtFechaHora(tiempo.inicio) : "—"}</Td>
+                                <Td>{tiempo?.fin ? fmtFechaHora(tiempo.fin) : "—"}</Td>
+                                <Td className="font-semibold">{tiempo?.texto || "—"}</Td>
 
-                                <Td>
-                                    {tiempo?.fin
-                                        ? fmtFechaHora(tiempo.fin)
-                                        : "—"}
-                                </Td>
-
-                                <Td className="font-semibold">
-                                    {tiempo?.texto || "—"}
-                                </Td>
-
-                                <Td
-                                    className="max-w-[420px] truncate"
-                                    title={a.mensaje}
-                                >
+                                <Td className="max-w-[420px] truncate" title={a.mensaje}>
                                     {a.mensaje}
                                 </Td>
                             </tr>
@@ -267,10 +233,10 @@ export default function AlertasTable({ data, loading }) {
                     })}
                 </tbody>
             </table>
+
+            {/* PAGINACIÓN */}
             <div className="flex justify-between items-center p-3 text-xs text-gray-600">
-                <span>
-                    Página {page} de {totalPaginas} · {dataFiltrada.length} registros
-                </span>
+                <span>Página {page} de {totalPaginas} · {dataFiltrada.length} registros</span>
 
                 <div className="flex gap-2">
                     <button
@@ -290,106 +256,72 @@ export default function AlertasTable({ data, loading }) {
                     </button>
                 </div>
             </div>
-
         </div>
     );
 }
 
 /* ==========================
-HELPERS
+   HELPERS
 ========================== */
+
+function labelEvaluacion(key) {
+    const labels = {
+        revisionCCTV: "Revisión CCTV",
+        contactoOperador: "Contacto operador",
+        accionesRecuperacion: "Acciones recuperación",
+        seguimientoSinSenal: "Seguimiento sin señal",
+        operativoAutoridades: "Operativo autoridades"
+    };
+
+    if (labels[key]) return labels[key];
+
+    return key.replace(/([A-Z])/g, " $1").replace(/^./, c => c.toUpperCase());
+}
 
 function fmtRespuesta(obj) {
     if (!obj) return "—";
-
-    if (obj.respuesta === true) {
-        return (
-            <span className="text-emerald-600 font-semibold">
-                Sí
-            </span>
-        );
-    }
-
-    if (obj.respuesta === false) {
-        return (
-            <span className="text-red-600 font-semibold">
-                No
-            </span>
-        );
-    }
-
-    return "—";
+    return obj.respuesta
+        ? <span className="text-emerald-600 font-semibold">Sí</span>
+        : <span className="text-red-600 font-semibold">No</span>;
 }
 
 function calcularTiempoRespuesta(evaluacionOperativa, alerta) {
     if (!evaluacionOperativa) return null;
 
-    const horasInicio = Object.values(evaluacionOperativa)
+    const horas = Object.values(evaluacionOperativa)
         .map(a => a?.horaEjecucion)
         .filter(Boolean)
         .map(h => new Date(h).getTime());
 
-    if (horasInicio.length === 0) return null;
+    if (!horas.length) return null;
 
-    const inicio = Math.min(...horasInicio);
+    const inicio = Math.min(...horas);
 
-    // 🔐 cierre real del caso
-    const cierreISO =
-        alerta?.detalle_cierre &&
-        (() => {
-            try {
-                const d = JSON.parse(alerta.detalle_cierre);
-                return d?.fechaCierreISO;
-            } catch {
-                return null;
-            }
-        })();
+    let cierre = alerta.fecha_cierre;
+    try {
+        cierre = JSON.parse(alerta.detalle_cierre)?.fechaCierreISO || cierre;
+    } catch {}
 
-    const finFecha = cierreISO || alerta.fecha_cierre;
-    if (!finFecha) return null;
+    if (!cierre) return null;
 
-    const fin = new Date(finFecha).getTime();
-
-    const diffMs = fin - inicio;
-    const diffSeg = Math.floor(diffMs / 1000);
-    const min = Math.floor(diffSeg / 60);
-    const seg = diffSeg % 60;
+    const fin = new Date(cierre).getTime();
+    const diff = Math.floor((fin - inicio) / 1000);
 
     return {
         inicio: new Date(inicio),
         fin: new Date(fin),
-        texto: `${min}m ${seg}s`
+        texto: `${Math.floor(diff / 60)}m ${diff % 60}s`
     };
 }
 
-
-function fmtFecha(value) {
-    if (!value) return "—";
-    return new Date(value).toLocaleDateString();
-}
-
-function fmtHora(value) {
-    if (!value) return "—";
-    return new Date(value).toLocaleTimeString();
-}
-
-function fmtFechaHora(value) {
-    if (!value) return "—";
-    return new Date(value).toLocaleString();
-}
+function fmtFecha(v) { return v ? new Date(v).toLocaleDateString() : "—"; }
+function fmtHora(v) { return v ? new Date(v).toLocaleTimeString() : "—"; }
+function fmtFechaHora(v) { return v ? new Date(v).toLocaleString() : "—"; }
 
 function Th({ children }) {
-    return (
-        <th className="px-3 py-2 border-b text-left font-semibold text-gray-700 whitespace-nowrap">
-            {children}
-        </th>
-    );
+    return <th className="px-3 py-2 border-b font-semibold text-gray-700 whitespace-nowrap">{children}</th>;
 }
 
 function Td({ children, className = "" }) {
-    return (
-        <td className={`px-3 py-2 align-top whitespace-nowrap ${className}`}>
-            {children}
-        </td>
-    );
+    return <td className={`px-3 py-2 align-top whitespace-nowrap ${className}`}>{children}</td>;
 }
