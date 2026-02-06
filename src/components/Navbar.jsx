@@ -25,6 +25,7 @@ export default function Navbar({ user }) {
       { href: "/dispositivos", label: "Dispositivos" },
       { href: "/casos", label: "Casos" },
       { href: "/monitoreopro", label: "MonitoreoPro" },
+      { href: "/seguridadinterna", label: "Seguridad Interna" },
     ],
   };
 
