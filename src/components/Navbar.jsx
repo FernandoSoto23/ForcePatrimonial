@@ -105,8 +105,9 @@ export default function Navbar({ user }) {
               >
                 {category}
                 <FiChevronDown
-                  className={`transition ${openMenu === category ? "rotate-180 text-green-400" : ""
-                    }`}
+                  className={`transition ${
+                    openMenu === category ? "rotate-180 text-green-400" : ""
+                  }`}
                 />
               </button>
 
@@ -136,6 +137,9 @@ export default function Navbar({ user }) {
 
         {/* DERECHA */}
         <div className="flex items-center gap-4">
+          <span className="text-[11px] text-gray-400 font-medium px-2 py-1 rounded-lg bg-white/5 border border-white/10">
+            Versión 2.0.0
+          </span>
           <IoNotifications className="text-yellow-400 text-xl cursor-pointer" />
 
           <div className="relative" ref={userMenuRef}>
@@ -148,8 +152,9 @@ export default function Navbar({ user }) {
                 {user?.name ?? "Usuario"}
               </span>
               <FiChevronDown
-                className={`transition ${userMenuOpen ? "rotate-180 text-green-400" : ""
-                  }`}
+                className={`transition ${
+                  userMenuOpen ? "rotate-180 text-green-400" : ""
+                }`}
               />
             </button>
 

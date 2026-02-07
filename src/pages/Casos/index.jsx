@@ -57,147 +57,105 @@ const SLTA_LABEL = {
 };
 
 const MOTIVOS_CIERRE = [
-  { value: "Falsa alarma", label: "Falsa alarma" },
-  {
-    value: "Evento atendido sin novedad",
-    label: "Evento atendido sin novedad",
-  },
-  {
-    value: "Contacto con operador / chofer",
-    label: "Contacto con operador / chofer",
-  },
-  {
-    value: "Unidad localizada sin novedad",
-    label: "Unidad localizada sin novedad",
-  },
-  {
-    value: "Unidad en zona segura / sucursal",
-    label: "Unidad en zona segura / sucursal",
-  },
-
-  { value: "Detención autorizada", label: "Detención autorizada" },
-  {
-    value: "Parada por descanso / alimentos",
-    label: "Parada por descanso / alimentos",
-  },
-  {
-    value: "Parada por carga/descarga autorizada",
-    label: "Parada por carga/descarga autorizada",
-  },
-
-  { value: "Desvío de ruta justificado", label: "Desvío de ruta justificado" },
-  {
-    value: "Cambio de ruta autorizado por logística",
-    label: "Cambio de ruta autorizado por logística",
-  },
-
-  {
-    value: "Sin señal temporal recuperada",
-    label: "Sin señal temporal recuperada",
-  },
-  {
-    value: "Sin señal por zona sin cobertura",
-    label: "Sin señal por zona sin cobertura",
-  },
-  {
-    value: "Problema técnico del dispositivo",
-    label: "Problema técnico del dispositivo",
-  },
-  {
-    value: "Falla de GPS / equipo sin reporte",
-    label: "Falla de GPS / equipo sin reporte",
-  },
-  {
-    value: "Falla de energía / batería desconectada",
-    label: "Falla de energía / batería desconectada",
-  },
-  {
-    value: "Mantenimiento / taller autorizado",
-    label: "Mantenimiento / taller autorizado",
-  },
-
-  {
-    value: "Activación de botón de pánico falsa",
-    label: "Activación de botón de pánico falsa",
-  },
-  {
-    value: "Botón de pánico activado por error",
-    label: "Botón de pánico activado por error",
-  },
-
-  {
-    value: "Evento escalado a autoridades",
-    label: "Evento escalado a autoridades",
-  },
-  {
-    value: "Evento escalado a coordinación de seguridad",
-    label: "Evento escalado a coordinación de seguridad",
-  },
-  {
-    value: "Evento escalado a logística",
-    label: "Evento escalado a logística",
-  },
-
-  // 🔥 RECUPERACIÓN / ROBO
-  {
-    value: "Robo confirmado (unidad sustraída)",
-    label: "Robo confirmado (unidad sustraída)",
-  },
-  {
-    value: "Robo frustrado (sin pérdida)",
-    label: "Robo frustrado (sin pérdida)",
-  },
-  {
-    value: "Unidad recuperada por autoridades",
-    label: "Unidad recuperada por autoridades",
-  },
-  {
-    value: "Unidad recuperada por seguridad interna",
-    label: "Unidad recuperada por seguridad interna",
-  },
-  {
-    value: "Unidad recuperada (sin detenido)",
-    label: "Unidad recuperada (sin detenido)",
-  },
-  {
-    value: "Unidad recuperada con detenido",
-    label: "Unidad recuperada con detenido",
-  },
-  { value: "Carga recuperada", label: "Carga recuperada" },
-  {
-    value: "Carga recuperada parcialmente",
-    label: "Carga recuperada parcialmente",
-  },
-  { value: "Pérdida total de carga", label: "Pérdida total de carga" },
-  {
-    value: "Unidad no recuperada (pendiente)",
-    label: "Unidad no recuperada (pendiente)",
-  },
-
-  // 🚨 INCIDENTES VARIOS
-  { value: "Accidente vial", label: "Accidente vial" },
-  { value: "Incidente mecánico", label: "Incidente mecánico" },
-  {
-    value: "Operador lesionado / emergencia médica",
-    label: "Operador lesionado / emergencia médica",
-  },
-  {
-    value: "Operador detenido por autoridad",
-    label: "Operador detenido por autoridad",
-  },
-
-  // 📌 DOCUMENTACIÓN
-  {
-    value: "Evento documentado en bitácora",
-    label: "Evento documentado en bitácora",
-  },
-  {
-    value: "Evento cerrado por instrucción de supervisión",
-    label: "Evento cerrado por instrucción de supervisión",
-  },
-
-  { value: "OTRO", label: "Otro (requiere observación)" },
+  { value: "Descanso", label: "Descanso" },
+  { value: "Alimentos", label: "Alimentos" },
+  { value: "W.C.", label: "W.C." },
+  { value: "Accidente Externo", label: "Accidente Externo" },
+  { value: "Carga de Combustible", label: "Carga de Combustible" },
+  { value: "Resguardo por Restriccion de Horario", label: "Resguardo por Restriccion de Horario" },
+  { value: "Pension", label: "Pension" },
+  { value: "Revision de Equipo", label: "Revision de Equipo" },
+  { value: "En espera de indicaciones", label: "En espera de indicaciones" },
+  { value: "Parada en Ruta", label: "Parada en Ruta" },
+  { value: "Llanta ponchada", label: "Llanta ponchada" },
+  { value: "Falla accesorios", label: "Falla accesorios" },
+  { value: "Revision por autoridades", label: "Revision por autoridades" },
+  { value: "Baja cobertura", label: "Baja cobertura" },
+  { value: "Apoyo a Compañero", label: "Apoyo a Compañero" },
+  { value: "Falla-mecanica", label: "Falla-mecanica" },
+  { value: "Salida de Sucursal", label: "Salida de Sucursal" },
+  { value: "Llanta Tronada", label: "Llanta Tronada" },
+  { value: "Desvio de Ruta Autorizado", label: "Desvio de Ruta Autorizado" },
+  { value: "Desvio de ruta no autorizado", label: "Desvio de ruta no autorizado" },
+  { value: "Omision de protocolo", label: "Omision de protocolo" },
+  { value: "Llegada a punto de custodia PBC", label: "Llegada a punto de custodia PBC" },
+  { value: "Reparacion de Carretera", label: "Reparacion de Carretera" },
+  { value: "Detencion por Autoridades", label: "Detencion por Autoridades" },
+  { value: "Avance Lento", label: "Avance Lento" },
+  { value: "Mal Clima", label: "Mal Clima" },
+  { value: "Siniestro Vial Sin Lesionados", label: "Siniestro Vial Sin Lesionados" },
+  { value: "Manifestantes", label: "Manifestantes" },
+  { value: "Talacha", label: "Talacha" },
+  { value: "Sin señal", label: "Sin señal" },
+  { value: "Falla de accesorios", label: "Falla de accesorios" },
+  { value: "Falla mecanica", label: "Falla mecanica" },
+  { value: "Bloqueo de camino", label: "Bloqueo de camino" },
+  { value: "Falla-electrica", label: "Falla-electrica" },
+  { value: "Enfermedad", label: "Enfermedad" },
+  { value: "Accidente laboral", label: "Accidente laboral" },
+  { value: "Agencia", label: "Agencia" },
+  { value: "Agresion directa con lesionados", label: "Agresion directa con lesionados" },
+  { value: "Agresion directa sin lesionados", label: "Agresion directa sin lesionados" },
+  { value: "Ambos equipos", label: "Ambos equipos" },
+  { value: "Asalto con afectacion a mercancia", label: "Asalto con afectacion a mercancia" },
+  { value: "Asalto con violencia", label: "Asalto con violencia" },
+  { value: "Asalto sin afectacion a mercancia", label: "Asalto sin afectacion a mercancia" },
+  { value: "Cambio de operador al volante", label: "Cambio de operador al volante" },
+  { value: "Corralon", label: "Corralon" },
+  { value: "Daño por vandalismo", label: "Daño por vandalismo" },
+  { value: "Decomiso por autoridades", label: "Decomiso por autoridades" },
+  { value: "Decomiso por mercancia contaminada", label: "Decomiso por mercancia contaminada" },
+  { value: "Detencion ambos equipos", label: "Detencion ambos equipos" },
+  { value: "Detencion de remolques", label: "Detencion de remolques" },
+  { value: "Detencion de tractocamion", label: "Detencion de tractocamion" },
+  { value: "Detencion de tripulacion", label: "Detencion de tripulacion" },
+  { value: "Ead", label: "Ead" },
+  { value: "En rutas logisticas", label: "En rutas logisticas" },
+  { value: "Enlace", label: "Enlace" },
+  { value: "Equipo dañado", label: "Equipo dañado" },
+  { value: "Exceso de velocidad", label: "Exceso de velocidad" },
+  { value: "Falla de tarjeta iave", label: "Falla de tarjeta iave" },
+  { value: "Falso operativo", label: "Falso operativo" },
+  { value: "Falta de diesel", label: "Falta de diesel" },
+  { value: "Faltante de llanta", label: "Faltante de llanta" },
+  { value: "Hotel", label: "Hotel" },
+  { value: "Intento de asalto", label: "Intento de asalto" },
+  { value: "Jammer detectado", label: "Jammer detectado" },
+  { value: "Lavado", label: "Lavado" },
+  { value: "Revision de documentos", label: "Revision de documentos" },
+  { value: "Llamada de extorcion", label: "Llamada de extorcion" },
+  { value: "Llegada a punto de custodia CRB", label: "Llegada a punto de custodia CRB" },
+  { value: "Llegada a sucursal", label: "Llegada a sucursal" },
+  { value: "Maniobras", label: "Maniobras" },
+  { value: "Operativo en proceso", label: "Operativo en proceso" },
+  { value: "Persecucion", label: "Persecucion" },
+  { value: "Persona sospechosa", label: "Persona sospechosa" },
+  { value: "Prueba de manejo", label: "Prueba de manejo" },
+  { value: "Pruebas", label: "Pruebas" },
+  { value: "Queclink", label: "Queclink" },
+  { value: "Rad", label: "Rad" },
+  { value: "Retencion de mercancia", label: "Retencion de mercancia" },
+  { value: "Robo con afectacion a mercancia", label: "Robo con afectacion a mercancia" },
+  { value: "Robo de accesorios", label: "Robo de accesorios" },
+  { value: "Robo de unidad", label: "Robo de unidad" },
+  { value: "Robo sin afectacion a mercancia", label: "Robo sin afectacion a mercancia" },
+  { value: "Robo sin violencia", label: "Robo sin violencia" },
+  { value: "Robo total", label: "Robo total" },
+  { value: "Ruptela", label: "Ruptela" },
+  { value: "Ruta confirmada", label: "Ruta confirmada" },
+  { value: "Sin candados", label: "Sin candados" },
+  { value: "Sin celular", label: "Sin celular" },
+  { value: "Siniestro vial con afectacion de mercancia", label: "Siniestro vial con afectacion de mercancia" },
+  { value: "Siniestro vial con defunciones", label: "Siniestro vial con defunciones" },
+  { value: "Siniestro vial con lesionados", label: "Siniestro vial con lesionados" },
+  { value: "Siniestro vial con mercancia expuesta", label: "Siniestro vial con mercancia expuesta" },
+  { value: "Siniestro vial sin afectacion de mercancia", label: "Siniestro vial sin afectacion de mercancia" },
+  { value: "Siniestro vial sin mercancia expuesta", label: "Siniestro vial sin mercancia expuesta" },
+  { value: "Taller", label: "Taller" },
+  { value: "Traslado", label: "Traslado" },
+  { value: "Vehiculo sospechoso", label: "Vehiculo sospechoso" },
 ];
+
 const MOTIVOS_CIERRE_ALERTA = [
   {
     value: "FALSA_ALARMA",
@@ -1595,12 +1553,12 @@ export default function Casos() {
           <div className="flex justify-between mb-4 items-center">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold text-gray-900">Alertas</h2>
-              <ResumenCargaAlertas
+{/*               <ResumenCargaAlertas
                 totalAlertas={totalAlertas}
                 alertasFiltradas={alertasFiltradas}
                 alertasProcesadas={alertasProcesadas}
                 cargaTerminada={cargaTerminada}
-              />
+              /> */}
 
               <span className="bg-emerald-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
                 {activos.length}

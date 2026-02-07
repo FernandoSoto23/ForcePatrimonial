@@ -150,13 +150,7 @@ function CasoActivoCard({
 
         {/* ACCIONES */}
         <div className="flex gap-1">
-          <button
-            title="Analizar caso"
-            onClick={() => onAnalizar(caso)}
-            className="px-3 py-1 text-[11px] rounded bg-black text-white hover:bg-gray-900"
-          >
-            Analizar
-          </button>
+
 
           {/*           <button
             title="Llamar operador"
@@ -192,6 +186,13 @@ function CasoActivoCard({
             className="px-2 py-1 rounded bg-gray-100 text-gray-800 hover:bg-gray-200"
           >
             🗺
+          </button>
+                    <button
+            title="Analizar caso"
+            onClick={() => onAnalizar(caso)}
+            className="px-3 py-1 text-[11px] rounded bg-red-600 text-white hover:bg-red-700 flex items-center gap-1"
+          >
+            Protocolo
           </button>
         </div>
 
