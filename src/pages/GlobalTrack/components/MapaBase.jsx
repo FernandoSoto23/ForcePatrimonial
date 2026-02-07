@@ -183,7 +183,7 @@ export default function MapaBase({
       </svg>
     `;
 
-    const img = new Image(32, 32); // ✅ Tamaño medio: 32x32 (antes 26, luego 40)
+    const img = new Image(38, 38); // ✅ Tamaño equilibrado: 38x38
     img.onload = () => {
       if (!map.hasImage("unit-cone")) {
         map.addImage("unit-cone", img, { sdf: true });
@@ -849,7 +849,7 @@ export default function MapaBase({
           source: "units",
           layout: {
             "icon-image": "unit-cone",
-            "icon-size": 0.75, // ✅ Tamaño medio: 0.75 (antes 0.65, luego 0.85)
+            "icon-size": 0.80, // ✅ Tamaño equilibrado: 0.80
             "icon-rotate": ["get", "heading"],
             "icon-allow-overlap": true,
           },
@@ -861,7 +861,7 @@ export default function MapaBase({
               "#ef4444",
             ],
             "icon-halo-color": "#000000",
-            "icon-halo-width": 0.7, // ✅ Halo medio: 0.7 (antes 0.6, luego 0.8)
+            "icon-halo-width": 1.5, // ✅ AUMENTADO de 0.75 a 1.5 para mejor visibilidad
           },
         });
 
@@ -971,7 +971,11 @@ export default function MapaBase({
         type: "line",
         source: "geocercas-lineales",
         layout: { "line-join": "round", "line-cap": "round" },
-        paint: { "line-color": "#00d0ff", "line-width": 3, "line-opacity": 0.9 },
+        paint: {
+          "line-color": "#8b5cf6", // ✅ Morado suave (antes era #00d0ff cyan brillante)
+          "line-width": 3,
+          "line-opacity": 0.7  // ✅ Reducida de 0.9 a 0.7 para menos saturación
+        },
       });
     }
 
