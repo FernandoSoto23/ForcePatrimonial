@@ -12,6 +12,7 @@ import Casosv2 from "../pages/Casosv2";
 import Dispositivos from "../pages/Dispositivos";
 import MonitoreoPro from "../pages/MonitoreoPro";
 import GlobalTrack from "../pages/GlobalTrack";
+import SeguridadInterna from "../pages/SeguridadInterna";
 
 
 export default function AppRouter() {
@@ -47,6 +48,7 @@ export default function AppRouter() {
         <Route path="/dispositivos" element={<Dispositivos />} />
         <Route path="/monitoreopro" element={<MonitoreoPro />} />
         <Route path="/globaltrack" element={<GlobalTrack />} />
+         <Route path="/seguridadinterna" element={<SeguridadInterna />} />
       </Route>
 
       {/* =========================
