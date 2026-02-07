@@ -8,8 +8,6 @@ export default function Login() {
   const [i, setI] = useState(0);
   const [del, setDel] = useState(false);
   const [hover, setHover] = useState(false);
-
-  // ✅ NUEVO: estado de carga
   const [loading, setLoading] = useState(false);
 
   /* ================= TEXTO ANIMADO ================= */
@@ -34,19 +32,16 @@ export default function Login() {
 
   function handleLogin() {
     if (loading) return;
-
     setLoading(true);
 
-    // ✅ limpiar solo lo necesario
     localStorage.removeItem("wialon_sid");
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("session");
 
-    // pequeña pausa visual para UX
     setTimeout(() => {
       window.location.href = `${API_URL}/auth/wialon/login`;
-    }, 600);
+    }, 450);
   }
 
   return (
@@ -80,16 +75,6 @@ export default function Login() {
             gap: 24,
           }}
         >
-          {/* LOGO */}
-          <img
-            src="/logo.png"
-            alt="Force Patrimonial"
-            style={{
-              width: 110,
-              filter: "drop-shadow(0 10px 30px rgba(0,0,0,0.7))",
-            }}
-          />
-
           {/* ===== PANEL GLASS ===== */}
           <div
             style={{
@@ -107,6 +92,7 @@ export default function Login() {
               boxShadow:
                 "0 40px 90px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.25)",
               overflow: "hidden",
+              textAlign: "center",
             }}
           >
             {/* REFLEJO */}
@@ -123,6 +109,13 @@ export default function Login() {
               }}
             />
 
+            {/* ===== RADAR ===== */}
+            <div className="radar">
+              <div className="radar-grid" />
+              <div className="radar-sweep" />
+              <div className="radar-center" />
+            </div>
+
             <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 6 }}>
               Force Patrimonial
             </h1>
@@ -131,7 +124,7 @@ export default function Login() {
               Accede al panel con tu cuenta de Wialon
             </p>
 
-            {/* ===== BOTÓN ===== */}
+            {/* BOTÓN */}
             <button
               onClick={handleLogin}
               disabled={loading}
@@ -154,15 +147,8 @@ export default function Login() {
               {loading ? "Conectando con Wialon…" : "Entrar"}
             </button>
 
-            {/* LOADER */}
             {loading && (
-              <div
-                style={{
-                  marginTop: 14,
-                  display: "flex",
-                  justifyContent: "center",
-                }}
-              >
+              <div style={{ marginTop: 14, display: "flex", justifyContent: "center" }}>
                 <div className="spinner" />
               </div>
             )}
@@ -229,6 +215,59 @@ export default function Login() {
         }
 
         @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
+        /* ===== RADAR ===== */
+        .radar {
+          width: 72px;
+          height: 72px;
+          margin: 0 auto 22px;
+          border-radius: 50%;
+          background: rgba(2,6,23,0.9);
+          position: relative;
+          overflow: hidden;
+          box-shadow: inset 0 0 18px rgba(34,197,94,0.35),
+                      0 0 22px rgba(34,197,94,0.35);
+        }
+
+        .radar-grid {
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          background:
+            radial-gradient(circle at center, transparent 58%, rgba(34,197,94,0.18) 59%),
+            radial-gradient(circle at center, transparent 38%, rgba(34,197,94,0.18) 39%),
+            linear-gradient(0deg, transparent 49%, rgba(34,197,94,0.15) 50%, transparent 51%),
+            linear-gradient(90deg, transparent 49%, rgba(34,197,94,0.15) 50%, transparent 51%);
+        }
+
+        .radar-sweep {
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          background: conic-gradient(
+            rgba(34,197,94,0.45),
+            rgba(34,197,94,0.05),
+            transparent 60%
+          );
+          animation: sweep 4s linear infinite;
+        }
+
+        .radar-center {
+          position: absolute;
+          width: 6px;
+          height: 6px;
+          background: #22c55e;
+          border-radius: 50%;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          box-shadow: 0 0 12px #22c55e;
+        }
+
+        @keyframes sweep {
+          from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
       `}</style>
