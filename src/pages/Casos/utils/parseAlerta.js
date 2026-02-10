@@ -29,11 +29,18 @@ export function parseTipo(texto) {
   const t = normalize(texto);
   console.log(texto)
   if (t.includes("PANICO")) return "PANICO";
-  if (t.includes("JAMMER")){
-      console.log("Hay una alerta de jammer")
-     return "DETECCION DE JAMMER"
+  if (t.includes("JAMMER")) {
+    console.log("Hay una alerta de jammer")
+    return "DETECCION DE JAMMER"
   }
   if (t.includes("SIN SENAL")) return "SIN SEÑAL";
+  // 🟢 UNIDAD DETENIDA AUTORIZADA (VA ANTES)
+  if (
+    t.includes("UNIDAD DETENIDA AUTORIZADA") ||
+    (t.includes("UNIDAD DETENIDA") && t.includes("AUTORIZADA"))
+  ) {
+    return "UNIDAD DETENIDA AUTORIZADA";
+  }
   if (t.includes("UNIDAD DETENIDA")) return "UNIDAD DETENIDA";
   if (t.includes("ZONA")) return "ZONA DE RIESGO";
   if (t.includes("HORA DE NOTIFICACION")) return "INFORMATIVA";

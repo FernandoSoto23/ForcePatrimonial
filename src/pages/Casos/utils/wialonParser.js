@@ -51,14 +51,27 @@ export function parseWialonMessage(rawMsg) {
   /* ---------- Tipo ---------- */
   let tipo = "DESCONOCIDO";
 
-  if (text.includes("BOTON DE PANICO")) tipo = "PANICO";
-  else if (text.includes("SIN SENAL") || text.includes("CONNECTION LOSS"))
+  if (text.includes("BOTON DE PANICO")) {
+    tipo = "PANICO";
+
+  } else if (
+    text.includes("UNIDAD DETENIDA AUTORIZADA") ||
+    (text.includes("UNIDAD DETENIDA") && text.includes("AUTORIZADA"))
+  ) {
+    tipo = "UNIDAD_DETENIDA_AUTORIZADA";
+
+  } else if (text.includes("SIN SENAL") || text.includes("CONNECTION LOSS")) {
     tipo = "SIN_SEÑAL";
-  else if (text.includes("UNIDAD DETENIDA")) tipo = "UNIDAD_DETENIDA";
-  else if (text.includes("JAMMER") || text.includes("ANTI-JAMMER"))
+
+  } else if (text.includes("UNIDAD DETENIDA")) {
+    tipo = "UNIDAD_DETENIDA";
+
+  } else if (text.includes("JAMMER") || text.includes("ANTI-JAMMER")) {
     tipo = "JAMMER";
-  else if (text.includes("HORA DE NOTIFICACION"))
+
+  } else if (text.includes("HORA DE NOTIFICACION")) {
     tipo = "INFORMATIVA";
+  }
 
   /* ---------- Descripción corta ---------- */
   const descripcion =
