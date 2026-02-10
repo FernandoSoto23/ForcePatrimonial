@@ -12,9 +12,9 @@ export function parseUnidad(texto) {
 
   const patrones = [
     /\b[A-Z]{2,4}\d{2}\sM-\d{3,5}\b/, // MEX01 M-2669
-    /\b[A-Z]{2,4}\sM-\d{3,5}\b/,     // TIJ M-2274
-    /\bPXGL\sPX\d{5}\b/,             // PXGL PX00136
-    /\bITM\sM\d{6}\b/,               // ITM M003521
+    /\b[A-Z]{2,4}\sM-\d{3,5}\b/, // TIJ M-2274
+    /\bPXGL\sPX\d{5}\b/, // PXGL PX00136
+    /\bITM\sM\d{6}\b/, // ITM M003521
   ];
 
   for (const p of patrones) {
@@ -27,22 +27,36 @@ export function parseUnidad(texto) {
 
 export function parseTipo(texto) {
   const t = normalize(texto);
-  console.log(texto)
+
   if (t.includes("PANICO")) return "PANICO";
+
   if (t.includes("JAMMER")) {
-    console.log("Hay una alerta de jammer")
-    return "DETECCION DE JAMMER"
+    console.log("Hay una alerta de jammer");
+    return "DETECCION DE JAMMER";
   }
+
   if (t.includes("SIN SENAL")) return "SIN SEÑAL";
-  // 🟢 UNIDAD DETENIDA AUTORIZADA (VA ANTES)
+
+  // 🟢 UNIDAD DETENIDA AUTORIZADA
   if (
-    t.includes("UNIDAD DETENIDA AUTORIZADA") ||
-    (t.includes("UNIDAD DETENIDA") && t.includes("AUTORIZADA"))
+    t.includes("UNIDAD DETENIDA AUTORIZADA")
   ) {
     return "UNIDAD DETENIDA AUTORIZADA";
   }
+
+  // 🔴 UNIDAD DETENIDA NO AUTORIZADA
+  if (
+    t.includes("UNIDAD DETENIDA NO AUTORIZADA") ||
+    (t.includes("UNIDAD DETENIDA") && t.includes("NO AUTORIZADA"))
+  ) {
+    return "UNIDAD DETENIDA NO AUTORIZADA";
+  }
+
+  // ⚠️ UNIDAD DETENIDA GENÉRICA
   if (t.includes("UNIDAD DETENIDA")) return "UNIDAD DETENIDA";
+
   if (t.includes("ZONA")) return "ZONA DE RIESGO";
+
   if (t.includes("HORA DE NOTIFICACION")) return "INFORMATIVA";
 
   return "INFORMATIVA";
