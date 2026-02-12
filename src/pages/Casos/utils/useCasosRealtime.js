@@ -19,7 +19,9 @@ export function useCasosRealtime() {
             mensaje: a.mensaje,
             unidad: a.unidad || parseUnidad(a.mensaje),
             tipo: a.tipo || parseTipo(a.mensaje),
-            ts: a.ts ?? Date.now(),
+            ts: a.fecha_hora_incidente
+              ? Date.parse(a.fecha_hora_incidente)
+              : Date.now(),
           });
         });
       });
@@ -35,13 +37,30 @@ export function useCasosRealtime() {
     socket.on("nueva_alerta", (a) => {
       const mensaje = a.message ?? a.mensaje ?? "";
 
+      let ts = null;
+
+      if (a.fecha_hora_incidente) {
+        ts = Date.parse(a.fecha_hora_incidente);
+      }
+
+      if (!ts) {
+        const raw = extraerFechaHora(mensaje);
+        if (raw) {
+          const [fecha, hora] = raw.split(" ");
+          ts = buildTs(fecha, hora);
+        }
+      }
+
+      if (!ts) ts = Date.now();
+
       engine.pushAlerta({
         mensaje,
         unidad: a.unitName || parseUnidad(mensaje),
         tipo: a.alertType || parseTipo(mensaje),
-        ts: a.ts ?? Date.now(),
+        ts,
       });
     });
+
 
     return () => socket.disconnect();
   }, []);

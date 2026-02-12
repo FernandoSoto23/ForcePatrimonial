@@ -467,7 +467,7 @@ export default function Casos() {
     "DETECCION DE JAMMER",
   ]);
 
-  const VENTANA_CORRELACION = 10 * 60 * 1000; // 10 minutos
+  const VENTANA_CORRELACION = 3 * 60 * 1000; // 10 minutos
   const procesarAlerta = (data) => {
     // ===============================
     // 1️⃣ VALIDACIONES BÁSICAS
