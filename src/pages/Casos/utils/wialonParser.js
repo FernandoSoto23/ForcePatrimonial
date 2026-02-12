@@ -40,8 +40,7 @@ export function parseWialonMessage(rawMsg) {
   const velocidad = velMatch ? Number(velMatch[2]) : undefined;
 
   /* ---------- Maps ---------- */
-  const mapsUrl =
-    raw.match(/https:\/\/maps\.google\.com\/\?q=[^ ]+/)?.[0];
+  const mapsUrl = raw.match(/https:\/\/maps\.google\.com\/\?q=[^ ]+/)?.[0];
   const { lat, lon } = extractCoords(mapsUrl);
 
   /* ---------- Dirección ---------- */
@@ -53,29 +52,27 @@ export function parseWialonMessage(rawMsg) {
 
   if (text.includes("BOTON DE PANICO")) {
     tipo = "PANICO";
-
   } else if (
-    text.includes("UNIDAD DETENIDA AUTORIZADA") ||
-    (text.includes("UNIDAD DETENIDA") && text.includes("AUTORIZADA"))
+    text.includes("UNIDAD DETENIDA AUTORIZADA")
   ) {
     tipo = "UNIDAD_DETENIDA_AUTORIZADA";
-
+  } else if (
+    text.includes("UNIDAD DETENIDA NO AUTORIZADA") ||
+    (text.includes("UNIDAD DETENIDA") && text.includes("NO AUTORIZADA"))
+  ) {
+    tipo = "UNIDAD_DETENIDA_NO_AUTORIZADA";
   } else if (text.includes("SIN SENAL") || text.includes("CONNECTION LOSS")) {
     tipo = "SIN_SEÑAL";
-
   } else if (text.includes("UNIDAD DETENIDA")) {
     tipo = "UNIDAD_DETENIDA";
-
   } else if (text.includes("JAMMER") || text.includes("ANTI-JAMMER")) {
     tipo = "JAMMER";
-
   } else if (text.includes("HORA DE NOTIFICACION")) {
     tipo = "INFORMATIVA";
   }
 
   /* ---------- Descripción corta ---------- */
-  const descripcion =
-    raw.split(".")[0]?.replace(/\s+/g, " ").trim() || raw;
+  const descripcion = raw.split(".")[0]?.replace(/\s+/g, " ").trim() || raw;
 
   return {
     unidad,
