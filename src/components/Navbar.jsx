@@ -138,7 +138,7 @@ export default function Navbar({ user }) {
         {/* DERECHA */}
         <div className="flex items-center gap-4">
           <span className="text-[11px] text-gray-400 font-medium px-2 py-1 rounded-lg bg-white/5 border border-white/10">
-            Versión 2.0.0
+            Versión 2.1.0
           </span>
           <IoNotifications className="text-yellow-400 text-xl cursor-pointer" />
 

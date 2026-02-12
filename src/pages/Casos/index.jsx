@@ -246,6 +246,8 @@ function casosReducer(state, action) {
         },
       };
 
+    case "RESET":
+      return {};
     default:
       return state;
   }
@@ -466,6 +468,15 @@ export default function Casos() {
     () => generarPreguntas(contextoEvento),
     [contextoEvento],
   );
+
+  const esUsuarioTDC = useMemo(() => {
+    if (!usuario?.name) return false;
+
+    const nombre = usuario.name.toUpperCase().trim();
+
+    return nombre === "TDCPRUEBAS" || nombre.startsWith("TDC");
+  }, [usuario]);
+
   const evaluacionTexto = preguntasActuales
     .map((p) => {
       const r = evaluacionCritica[p.key];
@@ -489,7 +500,10 @@ export default function Casos() {
     // 1️⃣ VALIDACIONES BÁSICAS
     // ===============================
     if (!data) return;
-
+    // 🚫 NO procesar si unidades aún no están cargadas
+    if (unidadesUsuarioRef.current.size === 0) {
+      return;
+    }
     const mensaje = safeDecode(data.mensaje || "");
     const unidadRaw = (data.unidad || "").trim();
     const tipoRaw = (data.tipo || "").trim();
@@ -498,6 +512,12 @@ export default function Casos() {
 
     const unidadKey = normalize(unidadRaw);
     const tipoNorm = normalize(tipoRaw);
+
+    // 🔐 RESTRICCIÓN PARA USUARIOS TDC
+    if (esUsuarioTDC && tipoNorm !== "BOTON DE AYUDA") {
+      return; // 🚫 no procesa la alerta
+    }
+
 
     // 🔐 validar que la unidad sea del usuario
     if (!unidadesUsuarioRef.current.has(unidadKey)) return;
@@ -772,9 +792,10 @@ export default function Casos() {
         setTotalAlertas(todas.length);
 
         // 🔐 filtrar por unidades del usuario
-        const filtradas = todas.filter((a) =>
-          unidadPerteneceAlUsuario(a.unidad),
-        );
+        const filtradas = todas.filter((a) => {
+          const unidadKey = normalize(a.unidad || "");
+          return unidadesUsuarioRef.current.has(unidadKey);
+        });
         console.log(filtradas);
         setAlertasFiltradas(filtradas.length);
         setAlertasProcesadas(0);
@@ -839,6 +860,13 @@ export default function Casos() {
     });
 
     socket.on("nueva_alerta", (a) => {
+      // 🚫 si no hay unidades cargadas, ignorar
+      if (unidadesUsuarioRef.current.size === 0) return;
+
+
+      // 🚫 si la unidad NO pertenece al usuario, ignorar
+      if (!unidadesUsuarioRef.current.has(unidadKey)) return;
+      
       bufferRef.current.push({
         id: a.id ?? a.alertaId ?? a.id_alerta,
         mensaje: a.message ?? a.mensaje ?? "",
