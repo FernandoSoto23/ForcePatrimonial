@@ -39,6 +39,7 @@ import { extraerLatLng, extraerZonas } from "./utils/geocercas";
 import MensajeExpandable from "./components/MensajeExpandible";
 import { jwtDecode } from "jwt-decode";
 import ResumenCargaAlertas from "./components/ResumenCargaAlertas";
+import BarraOperativa from "./components/BarraOperativa";
 /* ============================================================
     CONFIG   VARIABLES GLOBALES
   ============================================================ */
@@ -304,7 +305,22 @@ export default function Casos() {
       .sort((a, b) => tsCaso(b) - tsCaso(a));
   }, [casos]);
 
-  const activos = useMemo(() => lista.filter((c) => !c.critico), [lista]);
+  const activos = useMemo(() => {
+    return lista.filter((c) => {
+      // ❌ si es crítico no va aquí
+      if (c.critico) return false;
+
+      const ultimoEvento = c.eventos?.[0];
+      if (!ultimoEvento) return false;
+
+      const tipo = (ultimoEvento.tipoNorm || "").toUpperCase();
+
+      // 🚫 ocultar visualmente ZONA DE RIESGO
+      if (tipo === "ZONA DE RIESGO") return false;
+      /* if (tipo === "UNIDAD DETENIDA AUTORIZADA") return false; */
+      return true;
+    });
+  }, [lista]);
 
   const criticos = useMemo(() => lista.filter((c) => c.critico), [lista]);
   const detalleCierreFinal = useMemo(() => {
@@ -857,9 +873,40 @@ export default function Casos() {
       document.body.style.overflow = "auto";
     };
   }, [casoCriticoSeleccionado, casoSeleccionado, mapaUnidad]);
+  const refrescarAlertas = async () => {
+    dispatchCasos({ type: "RESET" }); // si quieres limpiar todo (opcional)
+
+    const resp = await fetch(`${API_URL}/alertas/activas`);
+    const data = await resp.json();
+
+    const todas = data ?? [];
+
+    const filtradas = todas.filter((a) => unidadPerteneceAlUsuario(a.unidad));
+
+    filtradas.forEach((a) => {
+      procesarAlerta({
+        id: a.id,
+        mensaje: a.mensaje,
+        unidad: a.unidad,
+        tipo: a.tipo,
+        geocerca_slta: a.geocerca_slta,
+        geocercas_json: a.geocercas_json,
+      });
+    });
+  };
 
   return (
     <div>
+      <BarraOperativa
+        total={lista.length}
+        activos={activos.length}
+        criticos={criticos.length}
+        onCrearAlerta={() => {
+          console.log("🚨 Crear alerta manual");
+          // aquí tú metes la lógica real
+        }}
+        onRefrescarAlertas={() => window.location.reload()}
+      />
       <button
         onClick={() => setMostrarCodigo((v) => !v)}
         title="Código del agente"
@@ -1049,11 +1096,10 @@ export default function Casos() {
                     <button
                       onClick={() => setFiltroTipoAlerta("TODOS")}
                       className={`px-3 py-1 rounded-full text-[11px] font-semibold border
-                ${
-                  filtroTipoAlerta === "TODOS"
-                    ? "bg-black text-white border-black"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                }`}
+                ${filtroTipoAlerta === "TODOS"
+                          ? "bg-black text-white border-black"
+                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                        }`}
                     >
                       TODOS ({casoCriticoSeleccionado.eventos.length})
                     </button>
@@ -1063,11 +1109,10 @@ export default function Casos() {
                         key={tipo}
                         onClick={() => setFiltroTipoAlerta(tipo)}
                         className={`px-3 py-1 rounded-full text-[11px] font-semibold border
-                  ${
-                    filtroTipoAlerta === tipo
-                      ? "bg-red-600 text-white border-red-600"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                  }`}
+                  ${filtroTipoAlerta === tipo
+                            ? "bg-red-600 text-white border-red-600"
+                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                          }`}
                       >
                         {tipo} ({conteoPorTipo[tipo]})
                       </button>
@@ -1306,12 +1351,11 @@ export default function Casos() {
                       observacionesCierre.trim().length < 10)
                   }
                   className={`text-xs px-4 py-1 rounded text-white
-    ${
-      !motivoCierre ||
-      (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
-        ? "bg-gray-400 cursor-not-allowed"
-        : "bg-red-600 hover:bg-red-700"
-    }`}
+    ${!motivoCierre ||
+                      (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-red-600 hover:bg-red-700"
+                    }`}
                 >
                   Cerrar caso crítico
                 </button>
@@ -1531,12 +1575,11 @@ export default function Casos() {
                       detalleCierre.trim().length < 10)
                   }
                   className={`text-xs px-3 py-1 rounded text-white
-    ${
-      !motivoCierre ||
-      (motivoCierre === "OTRO" && detalleCierre.trim().length < 10)
-        ? "bg-gray-400 cursor-not-allowed"
-        : "bg-green-600 hover:bg-green-700"
-    }
+    ${!motivoCierre ||
+                      (motivoCierre === "OTRO" && detalleCierre.trim().length < 10)
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-green-600 hover:bg-green-700"
+                    }
   `}
                 >
                   Cerrar caso
@@ -1553,7 +1596,7 @@ export default function Casos() {
           <div className="flex justify-between mb-4 items-center">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold text-gray-900">Alertas</h2>
-{/*               <ResumenCargaAlertas
+              {/*               <ResumenCargaAlertas
                 totalAlertas={totalAlertas}
                 alertasFiltradas={alertasFiltradas}
                 alertasProcesadas={alertasProcesadas}
