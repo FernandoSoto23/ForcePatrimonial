@@ -341,6 +341,7 @@ export default function Casos() {
   const [eventoLlamada, setEventoLlamada] = useState(null);
 
   /* USE REF */
+  const idsRecibidosRef = useRef([]);
   const llamadaActivaRef = useRef(null);
   const twilioDeviceRef = useRef(null);
   const unidadesUsuarioRef = useRef(new Set());
@@ -637,6 +638,23 @@ export default function Casos() {
     // ===============================
     // 6️⃣ DISPATCH AL REDUCER
     // ===============================
+    const alertaId = data.id != null ? String(data.id) : null;
+    console.log("🔔 Alerta recibida:", {
+      alertaId,
+      unidad: unidadRaw,
+      tipo: tipoRaw,
+      mensaje,
+    });
+    if (!alertaId) return;
+
+    // 🔎 verificar si ya existe
+    if (idsRecibidosRef.current.includes(alertaId)) {
+      console.log("🚨 ALERTA DUPLICADA DETECTADA:", alertaId);
+    } else {
+      idsRecibidosRef.current.push(alertaId);
+      console.log("✅ Nueva alerta guardada:", alertaId);
+    }
+
     dispatchCasos({
       type: "ADD_ALERTA",
       casoId,
@@ -859,7 +877,7 @@ export default function Casos() {
         if (cancel) return;
         const todas = data ?? [];
         setTotalAlertas(todas.length);
-
+        console.log("🌐 API RECIBE:", todas.length, "alertas");
         // 🔐 filtrar por unidades del usuario
         const filtradas = todas.filter((a) => {
           const unidadKey = normalize(a.unidad || "");
@@ -934,53 +952,59 @@ export default function Casos() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (!usuario) return;
-    const socket = io(SOCKET_URL, {
-      transports: ["websocket"],
-      reconnection: true,
+useEffect(() => {
+  if (!usuario) return;
+
+  const socket = io(SOCKET_URL, {
+    transports: ["websocket"],
+    reconnection: true,
+  });
+
+  console.log("✅ SOCKET CONECTADO");
+
+  socket.on("nueva_alerta", (a) => {
+    console.log("📡 SOCKET RECIBE:", a.id ?? a.alertaId ?? a.id_alerta);
+
+    if (unidadesUsuarioRef.current.size === 0) {
+      console.log("⏳ unidades aún no cargadas");
+      return;
+    }
+
+    const unidadRaw = (a.unitName ?? a.unidad ?? "").trim();
+    const unidadKey = normalize(unidadRaw);
+
+    const tipoRaw = (a.alertType ?? a.tipo ?? "").trim();
+    const tipoNorm = normalize(tipoRaw);
+
+    // 🔐 regla TDC
+    if (esUsuarioTDC && tipoNorm !== "BOTON DE AYUDA") {
+      console.log("🚫 Ignorada por regla TDC:", tipoNorm);
+      return;
+    }
+
+    if (!unidadKey) return;
+
+    if (!unidadesUsuarioRef.current.has(unidadKey)) {
+      console.log("🚫 Unidad no pertenece al usuario:", unidadRaw);
+      return;
+    }
+
+    bufferRef.current.push({
+      id: a.id ?? a.alertaId ?? a.id_alerta,
+      mensaje: a.message ?? a.mensaje ?? "",
+      unidad: unidadRaw,
+      tipo: tipoRaw,
+      geocerca_slta: a.geocerca_slta ?? null,
+      geocercas_json: a.geocercas_json ?? null,
     });
+  });
 
-    socket.on("nueva_alerta", (a) => {
-      if (unidadesUsuarioRef.current.size === 0) return;
+  return () => {
+    console.log("❌ SOCKET DESCONECTADO");
+    socket.disconnect();
+  };
+}, [usuario, esUsuarioTDC]);
 
-      const unidadRaw = (a.unitName ?? a.unidad ?? "").trim();
-      const unidadKey = normalize(unidadRaw);
-
-      const tipoRaw = (a.alertType ?? a.tipo ?? "").trim();
-      const tipoNorm = normalize(tipoRaw);
-
-      if (esUsuarioTDC && tipoNorm !== "BOTON DE AYUDA") {
-        return; // 🚫 ignora cualquier alerta que no sea botón de ayuda
-      }
-      if (!unidadKey) return;
-
-      if (!unidadesUsuarioRef.current.has(unidadKey)) return;
-
-      bufferRef.current.push({
-        id: a.id ?? a.alertaId ?? a.id_alerta,
-        mensaje: a.message ?? a.mensaje ?? "",
-        unidad: unidadRaw,
-        tipo: a.alertType ?? a.tipo ?? "",
-        geocerca_slta: a.geocerca_slta ?? null,
-        geocercas_json: a.geocercas_json ?? null,
-      });
-    });
-
-    socket.on("operador_speech", (data) => {
-      setConversacionIA((prev) => [
-        ...prev,
-        { from: "operador", text: data.text },
-      ]);
-    });
-
-    socket.on("ia_speech", (data) => {
-      setConversacionIA((prev) => [...prev, { from: "ia", text: data.text }]);
-    });
-
-    return () => socket.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   useEffect(() => {
     if (casoCriticoSeleccionado || casoSeleccionado || mapaUnidad) {
       document.body.style.overflow = "hidden";
