@@ -317,8 +317,21 @@ export default function Casos() {
 
       const tipo = (ultimoEvento.tipoNorm || "").toUpperCase();
 
-      // 🚫 ocultar visualmente ZONA DE RIESGO
+      const nombreUsuario = usuario?.name?.toUpperCase().trim();
+
+      // 🚫 siempre ocultar ZONA DE RIESGO
       if (tipo === "ZONA DE RIESGO") return false;
+
+      // 🚫 reglas especiales para usuarios TDC
+      if (
+        (nombreUsuario === "TDCPRUEBAS" || nombreUsuario?.startsWith("TDC")) &&
+        (
+          tipo === "SIN SENAL" ||
+          tipo === "UNIDAD DETENIDA AUTORIZADA"
+        )
+      ) {
+        return false;
+      }
       /* if (tipo === "UNIDAD DETENIDA AUTORIZADA") return false; */
       return true;
     });
@@ -860,22 +873,25 @@ export default function Casos() {
     });
 
     socket.on("nueva_alerta", (a) => {
-      // 🚫 si no hay unidades cargadas, ignorar
       if (unidadesUsuarioRef.current.size === 0) return;
 
+      const unidadRaw = (a.unitName ?? a.unidad ?? "").trim();
+      const unidadKey = normalize(unidadRaw);
 
-      // 🚫 si la unidad NO pertenece al usuario, ignorar
+      if (!unidadKey) return;
+
       if (!unidadesUsuarioRef.current.has(unidadKey)) return;
-      
+
       bufferRef.current.push({
         id: a.id ?? a.alertaId ?? a.id_alerta,
         mensaje: a.message ?? a.mensaje ?? "",
-        unidad: a.unitName ?? a.unidad ?? "",
+        unidad: unidadRaw,
         tipo: a.alertType ?? a.tipo ?? "",
         geocerca_slta: a.geocerca_slta ?? null,
         geocercas_json: a.geocercas_json ?? null,
       });
     });
+
     socket.on("operador_speech", (data) => {
       setConversacionIA((prev) => [
         ...prev,
