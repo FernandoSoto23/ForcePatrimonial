@@ -48,14 +48,6 @@ const TWILIO_BACKEND = "http://localhost:4000";
 
 const API_URL = "https://apipx.onrender.com";
 const SOCKET_URL = "https://apipx.onrender.com";
-const VENTANA = 10 * 60 * 1000; // 10 minutos para correlación
-const DEDUP_TTL = 90 * 1000; // 90s para evitar duplicados API+WS / reenvíos
-const SLTA_LABEL = {
-  S: "Sucursal",
-  L: "Local",
-  T: "Taller",
-  A: "Agencia",
-};
 
 const MOTIVOS_CIERRE = [
   { value: "Descanso", label: "Descanso" },
@@ -63,7 +55,10 @@ const MOTIVOS_CIERRE = [
   { value: "W.C.", label: "W.C." },
   { value: "Accidente Externo", label: "Accidente Externo" },
   { value: "Carga de Combustible", label: "Carga de Combustible" },
-  { value: "Resguardo por Restriccion de Horario", label: "Resguardo por Restriccion de Horario" },
+  {
+    value: "Resguardo por Restriccion de Horario",
+    label: "Resguardo por Restriccion de Horario",
+  },
   { value: "Pension", label: "Pension" },
   { value: "Revision de Equipo", label: "Revision de Equipo" },
   { value: "En espera de indicaciones", label: "En espera de indicaciones" },
@@ -77,14 +72,23 @@ const MOTIVOS_CIERRE = [
   { value: "Salida de Sucursal", label: "Salida de Sucursal" },
   { value: "Llanta Tronada", label: "Llanta Tronada" },
   { value: "Desvio de Ruta Autorizado", label: "Desvio de Ruta Autorizado" },
-  { value: "Desvio de ruta no autorizado", label: "Desvio de ruta no autorizado" },
+  {
+    value: "Desvio de ruta no autorizado",
+    label: "Desvio de ruta no autorizado",
+  },
   { value: "Omision de protocolo", label: "Omision de protocolo" },
-  { value: "Llegada a punto de custodia PBC", label: "Llegada a punto de custodia PBC" },
+  {
+    value: "Llegada a punto de custodia PBC",
+    label: "Llegada a punto de custodia PBC",
+  },
   { value: "Reparacion de Carretera", label: "Reparacion de Carretera" },
   { value: "Detencion por Autoridades", label: "Detencion por Autoridades" },
   { value: "Avance Lento", label: "Avance Lento" },
   { value: "Mal Clima", label: "Mal Clima" },
-  { value: "Siniestro Vial Sin Lesionados", label: "Siniestro Vial Sin Lesionados" },
+  {
+    value: "Siniestro Vial Sin Lesionados",
+    label: "Siniestro Vial Sin Lesionados",
+  },
   { value: "Manifestantes", label: "Manifestantes" },
   { value: "Talacha", label: "Talacha" },
   { value: "Sin señal", label: "Sin señal" },
@@ -95,17 +99,35 @@ const MOTIVOS_CIERRE = [
   { value: "Enfermedad", label: "Enfermedad" },
   { value: "Accidente laboral", label: "Accidente laboral" },
   { value: "Agencia", label: "Agencia" },
-  { value: "Agresion directa con lesionados", label: "Agresion directa con lesionados" },
-  { value: "Agresion directa sin lesionados", label: "Agresion directa sin lesionados" },
+  {
+    value: "Agresion directa con lesionados",
+    label: "Agresion directa con lesionados",
+  },
+  {
+    value: "Agresion directa sin lesionados",
+    label: "Agresion directa sin lesionados",
+  },
   { value: "Ambos equipos", label: "Ambos equipos" },
-  { value: "Asalto con afectacion a mercancia", label: "Asalto con afectacion a mercancia" },
+  {
+    value: "Asalto con afectacion a mercancia",
+    label: "Asalto con afectacion a mercancia",
+  },
   { value: "Asalto con violencia", label: "Asalto con violencia" },
-  { value: "Asalto sin afectacion a mercancia", label: "Asalto sin afectacion a mercancia" },
-  { value: "Cambio de operador al volante", label: "Cambio de operador al volante" },
+  {
+    value: "Asalto sin afectacion a mercancia",
+    label: "Asalto sin afectacion a mercancia",
+  },
+  {
+    value: "Cambio de operador al volante",
+    label: "Cambio de operador al volante",
+  },
   { value: "Corralon", label: "Corralon" },
   { value: "Daño por vandalismo", label: "Daño por vandalismo" },
   { value: "Decomiso por autoridades", label: "Decomiso por autoridades" },
-  { value: "Decomiso por mercancia contaminada", label: "Decomiso por mercancia contaminada" },
+  {
+    value: "Decomiso por mercancia contaminada",
+    label: "Decomiso por mercancia contaminada",
+  },
   { value: "Detencion ambos equipos", label: "Detencion ambos equipos" },
   { value: "Detencion de remolques", label: "Detencion de remolques" },
   { value: "Detencion de tractocamion", label: "Detencion de tractocamion" },
@@ -125,7 +147,10 @@ const MOTIVOS_CIERRE = [
   { value: "Lavado", label: "Lavado" },
   { value: "Revision de documentos", label: "Revision de documentos" },
   { value: "Llamada de extorcion", label: "Llamada de extorcion" },
-  { value: "Llegada a punto de custodia CRB", label: "Llegada a punto de custodia CRB" },
+  {
+    value: "Llegada a punto de custodia CRB",
+    label: "Llegada a punto de custodia CRB",
+  },
   { value: "Llegada a sucursal", label: "Llegada a sucursal" },
   { value: "Maniobras", label: "Maniobras" },
   { value: "Operativo en proceso", label: "Operativo en proceso" },
@@ -136,22 +161,46 @@ const MOTIVOS_CIERRE = [
   { value: "Queclink", label: "Queclink" },
   { value: "Rad", label: "Rad" },
   { value: "Retencion de mercancia", label: "Retencion de mercancia" },
-  { value: "Robo con afectacion a mercancia", label: "Robo con afectacion a mercancia" },
+  {
+    value: "Robo con afectacion a mercancia",
+    label: "Robo con afectacion a mercancia",
+  },
   { value: "Robo de accesorios", label: "Robo de accesorios" },
   { value: "Robo de unidad", label: "Robo de unidad" },
-  { value: "Robo sin afectacion a mercancia", label: "Robo sin afectacion a mercancia" },
+  {
+    value: "Robo sin afectacion a mercancia",
+    label: "Robo sin afectacion a mercancia",
+  },
   { value: "Robo sin violencia", label: "Robo sin violencia" },
   { value: "Robo total", label: "Robo total" },
   { value: "Ruptela", label: "Ruptela" },
   { value: "Ruta confirmada", label: "Ruta confirmada" },
   { value: "Sin candados", label: "Sin candados" },
   { value: "Sin celular", label: "Sin celular" },
-  { value: "Siniestro vial con afectacion de mercancia", label: "Siniestro vial con afectacion de mercancia" },
-  { value: "Siniestro vial con defunciones", label: "Siniestro vial con defunciones" },
-  { value: "Siniestro vial con lesionados", label: "Siniestro vial con lesionados" },
-  { value: "Siniestro vial con mercancia expuesta", label: "Siniestro vial con mercancia expuesta" },
-  { value: "Siniestro vial sin afectacion de mercancia", label: "Siniestro vial sin afectacion de mercancia" },
-  { value: "Siniestro vial sin mercancia expuesta", label: "Siniestro vial sin mercancia expuesta" },
+  {
+    value: "Siniestro vial con afectacion de mercancia",
+    label: "Siniestro vial con afectacion de mercancia",
+  },
+  {
+    value: "Siniestro vial con defunciones",
+    label: "Siniestro vial con defunciones",
+  },
+  {
+    value: "Siniestro vial con lesionados",
+    label: "Siniestro vial con lesionados",
+  },
+  {
+    value: "Siniestro vial con mercancia expuesta",
+    label: "Siniestro vial con mercancia expuesta",
+  },
+  {
+    value: "Siniestro vial sin afectacion de mercancia",
+    label: "Siniestro vial sin afectacion de mercancia",
+  },
+  {
+    value: "Siniestro vial sin mercancia expuesta",
+    label: "Siniestro vial sin mercancia expuesta",
+  },
   { value: "Taller", label: "Taller" },
   { value: "Traslado", label: "Traslado" },
   { value: "Vehiculo sospechoso", label: "Vehiculo sospechoso" },
@@ -300,6 +349,8 @@ export default function Casos() {
   const bufferRef = useRef([]);
   const { units, loading: loadingUnits } = useUnits();
   const criticosRefs = useRef({});
+  const alertasProcesadasRef = useRef(new Set());
+
   /* USE MEMO */
   const lista = useMemo(() => {
     return Object.values(casos)
@@ -325,10 +376,7 @@ export default function Casos() {
       // 🚫 reglas especiales para usuarios TDC
       if (
         (nombreUsuario === "TDCPRUEBAS" || nombreUsuario?.startsWith("TDC")) &&
-        (
-          tipo === "SIN SENAL" ||
-          tipo === "UNIDAD DETENIDA AUTORIZADA"
-        )
+        (tipo === "SIN SENAL" || tipo === "UNIDAD DETENIDA AUTORIZADA")
       ) {
         return false;
       }
@@ -507,12 +555,21 @@ export default function Casos() {
     "DETECCION DE JAMMER",
   ]);
 
-  const VENTANA_CORRELACION = 3 * 60 * 1000; // 10 minutos
+  const VENTANA_CORRELACION = 5 * 60 * 1000;
   const procesarAlerta = (data) => {
     // ===============================
     // 1️⃣ VALIDACIONES BÁSICAS
     // ===============================
     if (!data) return;
+
+    // 🛑 DEDUP GLOBAL POR ID
+    if (data.id && alertasProcesadasRef.current.has(data.id)) {
+      return;
+    }
+
+    if (data.id) {
+      alertasProcesadasRef.current.add(data.id);
+    }
     // 🚫 NO procesar si unidades aún no están cargadas
     if (unidadesUsuarioRef.current.size === 0) {
       return;
@@ -530,7 +587,6 @@ export default function Casos() {
     if (esUsuarioTDC && tipoNorm !== "BOTON DE AYUDA") {
       return; // 🚫 no procesa la alerta
     }
-
 
     // 🔐 validar que la unidad sea del usuario
     if (!unidadesUsuarioRef.current.has(unidadKey)) return;
@@ -807,7 +863,19 @@ export default function Casos() {
         // 🔐 filtrar por unidades del usuario
         const filtradas = todas.filter((a) => {
           const unidadKey = normalize(a.unidad || "");
-          return unidadesUsuarioRef.current.has(unidadKey);
+          const tipoNorm = normalize(a.tipo || "");
+
+          // 🔐 Debe pertenecer a sus unidades
+          if (!unidadesUsuarioRef.current.has(unidadKey)) {
+            return false;
+          }
+
+          // 🔐 Regla especial Torre de Control
+          if (esUsuarioTDC && tipoNorm !== "BOTON DE AYUDA") {
+            return false;
+          }
+
+          return true;
         });
         console.log(filtradas);
         setAlertasFiltradas(filtradas.length);
@@ -848,7 +916,7 @@ export default function Casos() {
     return () => {
       cancel = true;
     };
-  }, [loadingUnits, units]);
+  }, [loadingUnits, units, usuario, esUsuarioTDC]);
   useEffect(() => {
     const flush = () => {
       if (bufferRef.current.length === 0) return;
@@ -867,6 +935,7 @@ export default function Casos() {
   }, []);
 
   useEffect(() => {
+    if (!usuario) return;
     const socket = io(SOCKET_URL, {
       transports: ["websocket"],
       reconnection: true,
@@ -878,6 +947,12 @@ export default function Casos() {
       const unidadRaw = (a.unitName ?? a.unidad ?? "").trim();
       const unidadKey = normalize(unidadRaw);
 
+      const tipoRaw = (a.alertType ?? a.tipo ?? "").trim();
+      const tipoNorm = normalize(tipoRaw);
+
+      if (esUsuarioTDC && tipoNorm !== "BOTON DE AYUDA") {
+        return; // 🚫 ignora cualquier alerta que no sea botón de ayuda
+      }
       if (!unidadKey) return;
 
       if (!unidadesUsuarioRef.current.has(unidadKey)) return;
@@ -1140,10 +1215,11 @@ export default function Casos() {
                     <button
                       onClick={() => setFiltroTipoAlerta("TODOS")}
                       className={`px-3 py-1 rounded-full text-[11px] font-semibold border
-                ${filtroTipoAlerta === "TODOS"
-                          ? "bg-black text-white border-black"
-                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                        }`}
+                ${
+                  filtroTipoAlerta === "TODOS"
+                    ? "bg-black text-white border-black"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                }`}
                     >
                       TODOS ({casoCriticoSeleccionado.eventos.length})
                     </button>
@@ -1153,10 +1229,11 @@ export default function Casos() {
                         key={tipo}
                         onClick={() => setFiltroTipoAlerta(tipo)}
                         className={`px-3 py-1 rounded-full text-[11px] font-semibold border
-                  ${filtroTipoAlerta === tipo
-                            ? "bg-red-600 text-white border-red-600"
-                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                          }`}
+                  ${
+                    filtroTipoAlerta === tipo
+                      ? "bg-red-600 text-white border-red-600"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                  }`}
                       >
                         {tipo} ({conteoPorTipo[tipo]})
                       </button>
@@ -1395,11 +1472,12 @@ export default function Casos() {
                       observacionesCierre.trim().length < 10)
                   }
                   className={`text-xs px-4 py-1 rounded text-white
-    ${!motivoCierre ||
-                      (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-red-600 hover:bg-red-700"
-                    }`}
+    ${
+      !motivoCierre ||
+      (motivoCierre === "OTRO" && observacionesCierre.trim().length < 10)
+        ? "bg-gray-400 cursor-not-allowed"
+        : "bg-red-600 hover:bg-red-700"
+    }`}
                 >
                   Cerrar caso crítico
                 </button>
@@ -1619,11 +1697,12 @@ export default function Casos() {
                       detalleCierre.trim().length < 10)
                   }
                   className={`text-xs px-3 py-1 rounded text-white
-    ${!motivoCierre ||
-                      (motivoCierre === "OTRO" && detalleCierre.trim().length < 10)
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-green-600 hover:bg-green-700"
-                    }
+    ${
+      !motivoCierre ||
+      (motivoCierre === "OTRO" && detalleCierre.trim().length < 10)
+        ? "bg-gray-400 cursor-not-allowed"
+        : "bg-green-600 hover:bg-green-700"
+    }
   `}
                 >
                   Cerrar caso

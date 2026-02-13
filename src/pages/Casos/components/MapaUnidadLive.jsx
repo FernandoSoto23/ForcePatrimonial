@@ -41,9 +41,6 @@ function crearMarkerCamion(course = 0) {
 function MenuFlotante({ evento, onAbrirModal }) {
   return (
     <div className="absolute top-4 left-4 z-40 bg-white/90 backdrop-blur shadow-xl rounded-xl p-4 w-64">
-      <h3 className="font-semibold text-sm mb-2">
-        🚚 Unidad {evento?.unitId ?? "--"}
-      </h3>
 
       <div className="text-xs space-y-1">
         <p><b>Estado:</b> {evento ? "En seguimiento" : "Cargando..."}</p>
