@@ -46,7 +46,7 @@ import BarraOperativa from "./components/BarraOperativa";
 
 const TWILIO_BACKEND = "http://localhost:4000";
 
-const API_URL = VITE_API_URL || "http://localhost:4000";
+const API_URL = "https://apipx.onrender.com" || "http://localhost:4000";
 const SOCKET_URL = "https://apipx.onrender.com";
 
 const MOTIVOS_CIERRE = [
