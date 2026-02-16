@@ -103,13 +103,13 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
     clearInterval(timerRef.current);
 
     try {
-      if (callSid) {
-        await fetch("https://agentpatsec-a9l7.onrender.com/colgar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ callSid }),
-        });
-      }
+      const agentCode = getCodigoAgente();
+
+      await fetch("https://agentpatsec-a9l7.onrender.com/colgar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentCode }),
+      });
     } catch (e) {
       console.error("Error colgando llamada", e);
     }
@@ -182,7 +182,7 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
               onClick={colgar}
             />
           ) : (
-            <BotonCuadro icon={X} label="Cerrar" onClick={onColgar} />
+            <BotonCuadro icon={X} label="Cerrar" onClick={colgar} />
           )}
         </div>
       </div>
