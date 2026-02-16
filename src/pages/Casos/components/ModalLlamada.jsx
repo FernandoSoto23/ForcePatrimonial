@@ -164,14 +164,14 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
           )}
 
           {/* MUTE */}
-          {enLlamada && (
+{/*           {enLlamada && (
             <BotonCuadro
               icon={muteado ? MicOff : Mic}
               label={muteado ? "Muteado" : "Mutear"}
               active={muteado}
               onClick={() => setMuteado(!muteado)}
             />
-          )}
+          )} */}
 
           {/* COLGAR / CERRAR */}
           {enLlamada ? (
