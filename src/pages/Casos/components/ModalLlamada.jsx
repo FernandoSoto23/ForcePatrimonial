@@ -1,12 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import {
-  PhoneCall,
-  PhoneOff,
-  Mic,
-  MicOff,
-  X,
-  Clock,
-} from "lucide-react";
+import { PhoneCall, PhoneOff, Mic, MicOff, X, Clock } from "lucide-react";
 import { getCodigoAgente } from "../../../utils/codigoAgente";
 
 export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
@@ -15,6 +8,7 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
   const [segundos, setSegundos] = useState(0);
   const [telefonoUnidad, setTelefonoUnidad] = useState(null);
   const [muteado, setMuteado] = useState(false);
+  const [callSid, setCallSid] = useState(null);
 
   const abortRef = useRef(null);
   const timerRef = useRef(null);
@@ -30,9 +24,9 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
         const token = localStorage.getItem("auth_token");
         const resp = await fetch(
           `https://apipx.onrender.com/unidad/test-unidad-telefono?name=${encodeURIComponent(
-            evento.unidad
+            evento.unidad,
           )}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
 
         const data = await resp.json();
@@ -105,9 +99,21 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
     }
   };
 
-  const colgar = () => {
+  const colgar = async () => {
     clearInterval(timerRef.current);
-    abortRef.current?.abort();
+
+    try {
+      if (callSid) {
+        await fetch("https://agentpatsec-a9l7.onrender.com/colgar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ callSid }),
+        });
+      }
+    } catch (e) {
+      console.error("Error colgando llamada", e);
+    }
+
     reset();
     onColgar?.();
   };
@@ -119,7 +125,6 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
   return (
     <div className="fixed inset-0 z-[99999] bg-black/60 flex items-center justify-center">
       <div className="bg-white rounded-2xl shadow-2xl w-[420px] p-6 space-y-6">
-
         {/* HEADER */}
         <div className="text-center space-y-1">
           <h2 className="text-lg font-semibold text-gray-800">
@@ -147,7 +152,6 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
 
         {/* BOTONERA CUADROS */}
         <div className="flex justify-center gap-4 pt-4">
-
           {/* LLAMAR */}
           {!enLlamada && (
             <BotonCuadro
@@ -178,11 +182,7 @@ export default function ModalLlamadaCabina({ abierto, evento, onColgar }) {
               onClick={colgar}
             />
           ) : (
-            <BotonCuadro
-              icon={X}
-              label="Cerrar"
-              onClick={onColgar}
-            />
+            <BotonCuadro icon={X} label="Cerrar" onClick={onColgar} />
           )}
         </div>
       </div>

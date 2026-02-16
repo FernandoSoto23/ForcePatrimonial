@@ -46,7 +46,7 @@ import BarraOperativa from "./components/BarraOperativa";
 
 const TWILIO_BACKEND = "http://localhost:4000";
 
-const API_URL = "https://apipx.onrender.com";
+const API_URL = VITE_API_URL || "http://localhost:4000";
 const SOCKET_URL = "https://apipx.onrender.com";
 
 const MOTIVOS_CIERRE = [
@@ -585,8 +585,8 @@ export default function Casos() {
     const tipoNorm = normalize(tipoRaw);
 
     // 🔐 RESTRICCIÓN PARA USUARIOS TDC
-    if (esUsuarioTDC && tipoNorm !== "BOTON DE AYUDA") {
-      return; // 🚫 no procesa la alerta
+    if (!puedeVerAlerta(tipoRaw)) {
+      return;
     }
 
     // 🔐 validar que la unidad sea del usuario
@@ -865,6 +865,19 @@ export default function Casos() {
     console.log("🗺 Mapa unidad → id:", map.size);
   }, [units, loadingUnits]);
 
+  const puedeVerAlerta = useCallback(
+    (tipoRaw) => {
+      const tipoNorm = normalize(tipoRaw || "");
+
+      if (esUsuarioTDC) {
+        return tipoNorm === "BOTON DE AYUDA";
+      }
+
+      return tipoNorm !== "BOTON DE AYUDA";
+    },
+    [esUsuarioTDC],
+  );
+
   useEffect(() => {
     if (loadingUnits) return;
     if (unidadesUsuarioRef.current.size === 0) return;
@@ -872,30 +885,22 @@ export default function Casos() {
 
     const cargarAlertas = async () => {
       try {
-        const resp = await fetch(`${API_URL}/alertas/activas`);
+        const unitNames = units.map((u) => u.unidad); // nombres
+        const resp = await fetch(`${API_URL}/alertas/alertas-activas-unidad`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            unidades: unitNames,
+          }),
+        });
         const data = await resp.json();
         if (cancel) return;
         const todas = data ?? [];
-        setTotalAlertas(todas.length);
-        console.log("🌐 API RECIBE:", todas.length, "alertas");
         // 🔐 filtrar por unidades del usuario
-        const filtradas = todas.filter((a) => {
-          const unidadKey = normalize(a.unidad || "");
-          const tipoNorm = normalize(a.tipo || "");
+        const filtradas = todas.filter((a) => puedeVerAlerta(a.tipo));
 
-          // 🔐 Debe pertenecer a sus unidades
-          if (!unidadesUsuarioRef.current.has(unidadKey)) {
-            return false;
-          }
-
-          // 🔐 Regla especial Torre de Control
-          if (esUsuarioTDC && tipoNorm !== "BOTON DE AYUDA") {
-            return false;
-          }
-
-          return true;
-        });
-        console.log(filtradas);
         setAlertasFiltradas(filtradas.length);
         setAlertasProcesadas(0);
         setCargaTerminada(false);
@@ -952,58 +957,54 @@ export default function Casos() {
     return () => clearInterval(interval);
   }, []);
 
-useEffect(() => {
-  if (!usuario) return;
+  useEffect(() => {
+    if (!usuario) return;
 
-  const socket = io(SOCKET_URL, {
-    transports: ["websocket"],
-    reconnection: true,
-  });
-
-  console.log("✅ SOCKET CONECTADO");
-
-  socket.on("nueva_alerta", (a) => {
-    console.log("📡 SOCKET RECIBE:", a.id ?? a.alertaId ?? a.id_alerta);
-
-    if (unidadesUsuarioRef.current.size === 0) {
-      console.log("⏳ unidades aún no cargadas");
-      return;
-    }
-
-    const unidadRaw = (a.unitName ?? a.unidad ?? "").trim();
-    const unidadKey = normalize(unidadRaw);
-
-    const tipoRaw = (a.alertType ?? a.tipo ?? "").trim();
-    const tipoNorm = normalize(tipoRaw);
-
-    // 🔐 regla TDC
-    if (esUsuarioTDC && tipoNorm !== "BOTON DE AYUDA") {
-      console.log("🚫 Ignorada por regla TDC:", tipoNorm);
-      return;
-    }
-
-    if (!unidadKey) return;
-
-    if (!unidadesUsuarioRef.current.has(unidadKey)) {
-      console.log("🚫 Unidad no pertenece al usuario:", unidadRaw);
-      return;
-    }
-
-    bufferRef.current.push({
-      id: a.id ?? a.alertaId ?? a.id_alerta,
-      mensaje: a.message ?? a.mensaje ?? "",
-      unidad: unidadRaw,
-      tipo: tipoRaw,
-      geocerca_slta: a.geocerca_slta ?? null,
-      geocercas_json: a.geocercas_json ?? null,
+    const socket = io(SOCKET_URL, {
+      transports: ["websocket"],
+      reconnection: true,
     });
-  });
 
-  return () => {
-    console.log("❌ SOCKET DESCONECTADO");
-    socket.disconnect();
-  };
-}, [usuario, esUsuarioTDC]);
+    console.log("✅ SOCKET CONECTADO");
+
+    socket.on("nueva_alerta", (a) => {
+      if (unidadesUsuarioRef.current.size === 0) {
+        console.log("⏳ unidades aún no cargadas");
+        return;
+      }
+
+      const unidadRaw = (a.unitName ?? a.unidad ?? "").trim();
+      const unidadKey = normalize(unidadRaw);
+
+      const tipoRaw = (a.alertType ?? a.tipo ?? "").trim();
+
+      // 🔐 regla de visibilidad global
+      if (!puedeVerAlerta(tipoRaw)) {
+        console.log("🚫 Bloqueada por regla TDC:", tipoRaw);
+        return;
+      }
+      if (!unidadKey) return;
+
+      if (!unidadesUsuarioRef.current.has(unidadKey)) {
+        console.log("🚫 Unidad no pertenece al usuario:", unidadRaw);
+        return;
+      }
+
+      bufferRef.current.push({
+        id: a.id ?? a.alertaId ?? a.id_alerta,
+        mensaje: a.message ?? a.mensaje ?? "",
+        unidad: unidadRaw,
+        tipo: tipoRaw,
+        geocerca_slta: a.geocerca_slta ?? null,
+        geocercas_json: a.geocercas_json ?? null,
+      });
+    });
+
+    return () => {
+      console.log("❌ SOCKET DESCONECTADO");
+      socket.disconnect();
+    };
+  }, [usuario, esUsuarioTDC]);
 
   useEffect(() => {
     if (casoCriticoSeleccionado || casoSeleccionado || mapaUnidad) {
