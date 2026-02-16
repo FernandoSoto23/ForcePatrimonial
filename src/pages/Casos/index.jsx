@@ -531,12 +531,34 @@ export default function Casos() {
     [contextoEvento],
   );
 
+  const usuariosTDCWhitelist = [
+    // Analistas LMM
+    "TDCLUISREY",
+    "TDCFERNANDASOBERANES",
+    "TDCVERENICESANCHEZ",
+    "TDCPAULINAURQUIDY",
+    "DGALAVIZ@PAQUETEXPRESS.COM.MX",
+    "TORRECONTROLLM@PAQUETEXPRESS.COM.MX",
+
+    // Supervisores GDL
+    "TDCHORACIOHERNANDEZ",
+    "TDCFRANCISCOVALENCIA",
+    "TDCMACIELPEINADO",
+    "TDCALEJANDROMORENO",
+    "TDCALFONSOVAZQUEZ",
+
+    // pruebas
+    "TDCPRUEBAS",
+  ];
+
   const esUsuarioTDC = useMemo(() => {
     if (!usuario?.name) return false;
 
     const nombre = usuario.name.toUpperCase().trim();
 
-    return nombre === "TDCPRUEBAS" || nombre.startsWith("TDC");
+    return (
+      usuariosTDCWhitelist.includes(nombre) || nombre.startsWith("TDC") // blindaje adicional
+    );
   }, [usuario]);
 
   const evaluacionTexto = preguntasActuales
