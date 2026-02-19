@@ -1,4 +1,4 @@
-import { useNavigate, useLocation, href } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { FiUser, FiLogOut, FiChevronDown } from "react-icons/fi";
 import { IoNotifications } from "react-icons/io5";
@@ -89,6 +89,7 @@ export default function Navbar({ user }) {
 
       {/* NAVBAR */}
       <nav className="fixed top-0 left-0 w-full z-[999] flex items-center justify-between px-6 py-3 bg-black/85 backdrop-blur-xl border-b border-white/10">
+        
         {/* IZQUIERDA */}
         <div className="flex items-center gap-8" ref={dropdownRef}>
           <button onClick={() => handleNav("/")}>
@@ -140,6 +141,7 @@ export default function Navbar({ user }) {
           <span className="text-[11px] text-gray-400 font-medium px-2 py-1 rounded-lg bg-white/5 border border-white/10">
             Versión 2.1.0
           </span>
+
           <IoNotifications className="text-yellow-400 text-xl cursor-pointer" />
 
           <div className="relative" ref={userMenuRef}>

@@ -77,7 +77,6 @@ function getGeoCenterSafe(feature) {
   GEO DETECTION HELPERS (OPTIMIZADO)
 ========================= */
 
-// ✅ Calcular bounding box de una geocerca
 function getBoundingBox(geocerca) {
   const g = geocerca?.geometry;
   if (!g) return null;
@@ -107,7 +106,6 @@ function getBoundingBox(geocerca) {
   return { minX, maxX, minY, maxY };
 }
 
-// ✅ Check rápido con bounding box antes de point-in-polygon
 function isPointInBoundingBox(point, bbox) {
   if (!bbox) return false;
   const [x, y] = point;
@@ -133,7 +131,6 @@ function isUnitInGeocerca(unit, geocerca, bbox = null) {
   const coords = getCoords(unit);
   if (!coords) return false;
 
-  // ✅ OPTIMIZACIÓN 1: Bounding box check primero (muy rápido)
   if (bbox && !isPointInBoundingBox(coords, bbox)) {
     return false;
   }
@@ -175,6 +172,97 @@ export default function GlobalTrack() {
 
   const mapRef = useRef(null);
   const popupRef = useRef(null);
+  const playbackMarkerRef = useRef(null); // ✅ marcador de reproducción
+
+  /* =========================
+    ✅ PLAYBACK POSITION — mueve el ícono de la unidad en el mapa
+  ========================= */
+  // Cache de la traza — se acumula incrementalmente, no se reconstruye
+  const trailCoordsRef = useRef([]);
+  const lastTrailIndexRef = useRef(-1);
+
+  function handlePlaybackPosition(point, index, total) {
+    const map = mapRef.current;
+    if (!map || !point) return;
+
+    const lng = Number(point.lon ?? point.lng);
+    const lat = Number(point.lat);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    const coords = [lng, lat];
+    const heading = Number(point.course ?? point.heading ?? point.angle ?? 0);
+
+    // ── 1. Mover flecha ───────────────────────────────────────────
+    const unitGeojson = {
+      type: "FeatureCollection",
+      features: [{ type: "Feature", geometry: { type: "Point", coordinates: coords }, properties: { heading } }],
+    };
+
+    if (map.getSource("playback-unit")) {
+      map.getSource("playback-unit").setData(unitGeojson);
+    } else {
+      map.addSource("playback-unit", { type: "geojson", data: unitGeojson });
+      map.addLayer({
+        id: "playback-unit-layer",
+        type: "symbol",
+        source: "playback-unit",
+        layout: {
+          "icon-image": "unit-arrow",
+          "icon-size": 0.9,
+          "icon-rotate": ["get", "heading"],
+          "icon-rotation-alignment": "map",
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+        },
+        paint: {
+          "icon-color": "#f97316",
+          "icon-halo-color": "#7c2d12",
+          "icon-halo-width": 2.5,
+        },
+      });
+      playbackMarkerRef.current = true;
+    }
+
+    // ── 2. Traza incremental — NO reconstruir desde cero cada tick ─
+    // Si el índice retrocedió (seek / reset), limpiar y reconstruir
+    if (index < lastTrailIndexRef.current) {
+      trailCoordsRef.current = [];
+    }
+    lastTrailIndexRef.current = index;
+
+    // Solo agregar el punto nuevo
+    trailCoordsRef.current.push(coords);
+
+    // Actualizar source de traza cada 5 puntos para no saturar el GPU
+    if (trailCoordsRef.current.length >= 2 && (index % 5 === 0 || index === total - 1)) {
+      const trailGeojson = {
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: trailCoordsRef.current },
+        properties: {},
+      };
+
+      if (map.getSource("playback-trail")) {
+        map.getSource("playback-trail").setData(trailGeojson);
+      } else {
+        map.addSource("playback-trail", { type: "geojson", data: trailGeojson });
+        map.addLayer({
+          id: "playback-trail-outline",
+          type: "line", source: "playback-trail",
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: { "line-color": "#000", "line-width": 7, "line-opacity": 0.12 },
+        }, "playback-unit-layer");
+        map.addLayer({
+          id: "playback-trail-layer",
+          type: "line", source: "playback-trail",
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: { "line-color": "#f97316", "line-width": 4, "line-opacity": 0.9 },
+        }, "playback-unit-layer");
+      }
+    }
+
+    // Seguir la unidad sin easeTo agresivo
+    map.easeTo({ center: coords, duration: 60 });
+  }
 
   const [activePanel, setActivePanel] = useState(null);
   const [search, setSearch] = useState("");
@@ -184,48 +272,53 @@ export default function GlobalTrack() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyUnitId, setHistoryUnitId] = useState(null);
 
-  // ✅ seguir unidad
   const [followUnitId, setFollowUnitId] = useState(null);
-
-  // ✅ SOLO ETIQUETA DEL SEGUIMIENTO
   const [followShowPopup, setFollowShowPopup] = useState(true);
 
-  // ✅ ESTADO PARA HISTORIAL DE RUTAS
   const [routeHistoryData, setRouteHistoryData] = useState([]);
   const [routeHistoryLoading, setRouteHistoryLoading] = useState(false);
   const [routeHistoryError, setRouteHistoryError] = useState(null);
 
-  // ✅ MOSTRAR/OCULTAR RUTA HISTORIAL
   const [showHistoryRoute, setShowHistoryRoute] = useState(false);
-
-  // ✅ NUEVO: PARADA SELECCIONADA
   const [selectedStopIndex, setSelectedStopIndex] = useState(null);
 
-  // ✅ PAGINACIÓN PARA UNIDADES
   const [unitsPage, setUnitsPage] = useState(0);
   const UNITS_PER_PAGE = 50;
 
-  // ✅ PAGINACIÓN PARA GEOCERCAS
   const [geocercasPage, setGeocercasPage] = useState(0);
   const GEOCERCAS_PER_PAGE = 30;
 
-  // ✅ CACHE DE BOUNDING BOXES
+  const [selectedGeofenceId, setSelectedGeofenceId] = useState(null);
+
+  /* =========================
+    ✅ FIX PRINCIPAL: MEMOIZAR LOS GEOJSON OBJECTS
+    Sin esto, se crea un objeto nuevo en cada render,
+    disparando los useEffect de MapaBase repetidamente
+    y acumulando layers duplicados en el mapa.
+  ========================= */
+  const geocercasGeoJSON = useMemo(() => ({
+    type: "FeatureCollection",
+    features: Array.isArray(polys) ? polys : [],
+  }), [polys]);
+
+  const geocercasLinealesGeoJSON = useMemo(() => ({
+    type: "FeatureCollection",
+    features: Array.isArray(lines) ? lines : [],
+  }), [lines]);
+
+  /* =========================
+    CACHE DE BOUNDING BOXES
+  ========================= */
   const geocercasBoundingBoxes = useMemo(() => {
     if (!Array.isArray(polys)) return new Map();
 
     const map = new Map();
     polys.forEach((geocerca, idx) => {
       const bbox = getBoundingBox(geocerca);
-      if (bbox) {
-        map.set(idx, bbox);
-      }
+      if (bbox) map.set(idx, bbox);
     });
     return map;
   }, [polys]);
-
-  // ✅ GEOCERCA SELECCIONADA (HIGHLIGHT)
-  const [selectedGeofenceId, setSelectedGeofenceId] = useState(null);
-
 
   /* =========================
     AUTO REFRESH
@@ -233,7 +326,7 @@ export default function GlobalTrack() {
   useEffect(() => {
     const id = setInterval(() => {
       refreshUnits({ silent: true });
-    }, 10000); // ✅ Cambiado de 5000 a 10000ms (10 segundos)
+    }, 10000);
     return () => clearInterval(id);
   }, [refreshUnits]);
 
@@ -253,7 +346,6 @@ export default function GlobalTrack() {
     return safeUnits.filter((u) => normalize(getUnitName(u)).includes(q));
   }, [safeUnits, search]);
 
-  // ✅ UNIDADES PAGINADAS
   const paginatedUnits = useMemo(() => {
     const startIdx = unitsPage * UNITS_PER_PAGE;
     const endIdx = startIdx + UNITS_PER_PAGE;
@@ -263,23 +355,17 @@ export default function GlobalTrack() {
   const totalUnitsPages = Math.ceil(filteredUnits.length / UNITS_PER_PAGE);
 
   /* =========================
-    ✅ CALCULAR GEOCERCA DE CADA UNIDAD (SUPER OPTIMIZADO)
+    CALCULAR GEOCERCA DE CADA UNIDAD (OPTIMIZADO)
   ========================= */
   const unitsWithGeocerca = useMemo(() => {
     if (!Array.isArray(polys) || !safeUnits.length) return safeUnits;
-
-    // ✅ Solo calcular cuando el panel de unidades está abierto
     if (activePanel !== 'units') return safeUnits;
 
-    // ✅ Crear un Map para búsqueda rápida
     const unitGeocercaMap = new Map();
-
-    // ✅ OPTIMIZACIÓN: Solo procesar unidades visibles en la página actual
     const startIdx = unitsPage * UNITS_PER_PAGE;
     const endIdx = startIdx + UNITS_PER_PAGE;
     const visibleUnits = safeUnits.slice(startIdx, endIdx);
 
-    // Para cada unidad visible, buscar su geocerca
     visibleUnits.forEach(unit => {
       const geocercaIdx = polys.findIndex((g, gIdx) => {
         const bbox = geocercasBoundingBoxes.get(gIdx);
@@ -287,7 +373,6 @@ export default function GlobalTrack() {
       });
 
       const geocerca = geocercaIdx >= 0 ? polys[geocercaIdx] : null;
-
       if (geocerca) {
         unitGeocercaMap.set(unit.id, {
           name: geocerca?.properties?.name || null,
@@ -296,7 +381,6 @@ export default function GlobalTrack() {
       }
     });
 
-    // Mapear todas las unidades
     return safeUnits.map(unit => {
       const geoInfo = unitGeocercaMap.get(unit.id);
       return {
@@ -308,12 +392,11 @@ export default function GlobalTrack() {
   }, [safeUnits, polys, activePanel, unitsPage, geocercasBoundingBoxes]);
 
   /* =========================
-    ✅ CONTAR UNIDADES POR GEOCERCA (SUPER OPTIMIZADO)
+    CONTAR UNIDADES POR GEOCERCA (OPTIMIZADO)
   ========================= */
   const geocercasWithCount = useMemo(() => {
     if (!Array.isArray(polys)) return [];
 
-    // ✅ Solo calcular cuando el panel de geocercas está abierto
     if (activePanel !== 'geos') {
       return polys.map(g => ({
         ...g,
@@ -322,7 +405,6 @@ export default function GlobalTrack() {
       }));
     }
 
-    // ✅ CALCULAR PARA TODAS LAS GEOCERCAS (no solo página actual)
     return polys.map((geocerca, gIdx) => {
       const bbox = geocercasBoundingBoxes.get(gIdx);
       const unitsInside = safeUnits.filter(unit => isUnitInGeocerca(unit, geocerca, bbox));
@@ -330,7 +412,7 @@ export default function GlobalTrack() {
       return {
         ...geocerca,
         _unitsCount: unitsInside.length,
-        _unitsInside: unitsInside.slice(0, 5), // Solo guardar primeras 5
+        _unitsInside: unitsInside.slice(0, 5),
       };
     });
   }, [polys, safeUnits, activePanel, geocercasBoundingBoxes]);
@@ -351,7 +433,6 @@ export default function GlobalTrack() {
     return list.filter((g) => normalize(g._name).includes(q));
   }, [geocercasWithCount, searchGeo]);
 
-  // ✅ GEOCERCAS PAGINADAS
   const paginatedGeocercas = useMemo(() => {
     const startIdx = geocercasPage * GEOCERCAS_PER_PAGE;
     const endIdx = startIdx + GEOCERCAS_PER_PAGE;
@@ -361,35 +442,38 @@ export default function GlobalTrack() {
   const totalGeocercasPages = Math.ceil(filteredGeocercas.length / GEOCERCAS_PER_PAGE);
 
   /* =========================
-    🔥 BORRAR HISTORIAL DEL MAPA (FORZADO)
+    BORRAR HISTORIAL DEL MAPA (FORZADO)
   ========================= */
   function forceClearHistoryFromMap() {
     const map = mapRef.current;
     if (!map) return;
 
-    // Stops
     if (map.getLayer("history-stops-layer")) map.removeLayer("history-stops-layer");
     if (map.getSource("history-stops")) map.removeSource("history-stops");
-
-    // Route
     if (map.getLayer("history-route-layer")) map.removeLayer("history-route-layer");
     if (map.getLayer("history-route-outline")) map.removeLayer("history-route-outline");
     if (map.getSource("history-route")) map.removeSource("history-route");
   }
 
   function handleClearHistory() {
-    // 1) apaga dibujo
     setShowHistoryRoute(false);
-
-    // 2) limpia data (esto hace que MapaBase también ejecute su limpieza interna)
     setRouteHistoryData([]);
     setRouteHistoryError(null);
-
-    // 3) limpiar selección de parada
     setSelectedStopIndex(null);
-
-    // 4) borra inmediatamente del mapa (sin esperar a useEffect)
     forceClearHistoryFromMap();
+
+    // ✅ Limpiar layers de reproducción
+    const map = mapRef.current;
+    if (map) {
+      if (map.getLayer("playback-unit-layer"))    map.removeLayer("playback-unit-layer");
+      if (map.getLayer("playback-trail-layer"))   map.removeLayer("playback-trail-layer");
+      if (map.getLayer("playback-trail-outline")) map.removeLayer("playback-trail-outline");
+      if (map.getSource("playback-unit"))         map.removeSource("playback-unit");
+      if (map.getSource("playback-trail"))        map.removeSource("playback-trail");
+    }
+    playbackMarkerRef.current = null;
+    trailCoordsRef.current = [];
+    lastTrailIndexRef.current = -1;
   }
 
   /* =========================
@@ -400,7 +484,7 @@ export default function GlobalTrack() {
     setRouteHistoryError(null);
     setRouteHistoryData([]);
     setShowHistoryRoute(false);
-    setSelectedStopIndex(null); // ✅ limpiar selección
+    setSelectedStopIndex(null);
     forceClearHistoryFromMap();
 
     try {
@@ -411,10 +495,10 @@ export default function GlobalTrack() {
       }
       const API_URL = (
         import.meta.env.VITE_API_URL || "http://localhost:4000"
-      ).replace(/\/$/, ""); // 🔒 quita slash final si existe
+      ).replace(/\/$/, "");
 
       const res = await fetch(
-        `${API_URL}/historial-unidades`, // 👈 RUTA CORRECTA
+        `${API_URL}/historial-unidades`,
         {
           method: "POST",
           headers: {
@@ -449,7 +533,6 @@ export default function GlobalTrack() {
     }
   }
 
-
   /* =========================
     ACTIONS
   ========================= */
@@ -477,9 +560,6 @@ export default function GlobalTrack() {
     setFollowUnitId((prev) => (prev === id ? null : id));
   }
 
-  /* =========================
-    ✅ HANDLE STOP SELECTION
-  ========================= */
   function handleStopSelect(stopIndex) {
     setSelectedStopIndex(stopIndex);
   }
@@ -513,12 +593,11 @@ export default function GlobalTrack() {
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
-              setUnitsPage(0); // Reset a primera página al buscar
+              setUnitsPage(0);
             }}
           />
         </div>
 
-        {/* ✅ PAGINACIÓN */}
         {totalUnitsPages > 1 && (
           <div className="flex items-center justify-between px-3 py-2 border-b bg-gray-50">
             <button
@@ -545,8 +624,6 @@ export default function GlobalTrack() {
           {paginatedUnits.map((u) => {
             const speed = Number(u?.speed ?? 0);
             const isFollowing = followUnitId === String(u.id);
-
-            // ✅ Buscar geocerca de la unidad
             const unitWithGeo = unitsWithGeocerca.find(ug => ug.id === u.id);
             const geocercaName = unitWithGeo?._geocercaName;
 
@@ -577,11 +654,7 @@ export default function GlobalTrack() {
 
                   {isFollowing && (
                     <button
-                      title={
-                        followShowPopup
-                          ? "Ocultar etiqueta (seguimiento)"
-                          : "Mostrar etiqueta (seguimiento)"
-                      }
+                      title={followShowPopup ? "Ocultar etiqueta" : "Mostrar etiqueta"}
                       onClick={() => setFollowShowPopup((prev) => !prev)}
                       className={[
                         "transition-colors",
@@ -626,7 +699,6 @@ export default function GlobalTrack() {
                   </button>
                 </div>
 
-                {/* ✅ MOSTRAR GEOCERCA SI ESTÁ DENTRO */}
                 {geocercaName && (
                   <div className="ml-8 text-xs text-blue-600 flex items-center gap-1">
                     <FaMapMarkedAlt size={12} />
@@ -652,12 +724,11 @@ export default function GlobalTrack() {
             value={searchGeo}
             onChange={(e) => {
               setSearchGeo(e.target.value);
-              setGeocercasPage(0); // Reset a primera página al buscar
+              setGeocercasPage(0);
             }}
           />
         </div>
 
-        {/* ✅ PAGINACIÓN */}
         {totalGeocercasPages > 1 && (
           <div className="flex items-center justify-between px-3 py-2 border-b bg-gray-50">
             <button
@@ -692,18 +763,14 @@ export default function GlobalTrack() {
                 const center = getGeoCenterSafe(g);
                 if (!center) return;
 
-                // ✅ SETEAR GEOCERCA SELECCIONADA
                 setSelectedGeofenceId(g?.id ?? g?.properties?.id ?? g._name);
-
                 map.easeTo({ center, zoom: 14 });
               }}
-
             >
               <div className="flex items-center gap-3">
                 <FaMapMarkedAlt />
                 <span className="flex-1 truncate font-semibold">{g._name}</span>
 
-                {/* ✅ CONTADOR DE UNIDADES */}
                 <span
                   className={[
                     "text-xs px-2 py-1 rounded-full whitespace-nowrap font-semibold",
@@ -716,7 +783,6 @@ export default function GlobalTrack() {
                 </span>
               </div>
 
-              {/* ✅ MOSTRAR LISTA DE UNIDADES DENTRO */}
               {g._unitsCount > 0 && g._unitsInside && g._unitsInside.length > 0 && (
                 <div className="ml-7 text-xs text-gray-600 space-y-1">
                   {g._unitsInside.slice(0, 3).map((unit) => (
@@ -769,7 +835,7 @@ export default function GlobalTrack() {
           onClose={() => {
             setHistoryOpen(false);
             setHistoryUnitId(null);
-            handleClearHistory(); // ✅ al cerrar también limpia el mapa
+            handleClearHistory();
           }}
           units={safeUnits}
           selectedUnitId={historyUnitId}
@@ -781,11 +847,10 @@ export default function GlobalTrack() {
           mapRef={mapRef}
           showHistoryRoute={showHistoryRoute}
           setShowHistoryRoute={setShowHistoryRoute}
-          // ✅ ESTE ES EL IMPORTANTE (BOTÓN BORRAR HISTORIAL)
           onClearHistory={handleClearHistory}
-          // ✅ NUEVO: PASAR HANDLER DE SELECCIÓN DE PARADA
           onStopSelect={handleStopSelect}
           selectedStopIndex={selectedStopIndex}
+          onPlaybackPosition={handlePlaybackPosition}
         />
       )}
 
@@ -795,25 +860,16 @@ export default function GlobalTrack() {
         popupRef={popupRef}
         mapStyle={MAP_STYLES[mapStyle]}
         units={safeUnits}
-        geocercasGeoJSON={{
-          type: "FeatureCollection",
-          features: polys || [],
-        }}
-        geocercasLinealesGeoJSON={{
-          type: "FeatureCollection",
-          features: lines || [],
-        }}
+        geocercasGeoJSON={geocercasGeoJSON}
+        geocercasLinealesGeoJSON={geocercasLinealesGeoJSON}
         followUnitId={followUnitId}
         setFollowUnitId={setFollowUnitId}
         showInfoPopup={followShowPopup}
         historyData={routeHistoryData}
         showHistoryRoute={showHistoryRoute}
         selectedStopIndex={selectedStopIndex}
-
-        /* 🔥 ESTO ES LO QUE ACTIVA EL COLOR */
         selectedGeofenceId={selectedGeofenceId}
       />
-
     </div>
   );
 }

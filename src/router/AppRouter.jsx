@@ -48,7 +48,7 @@ export default function AppRouter() {
         <Route path="/dispositivos" element={<Dispositivos />} />
         <Route path="/monitoreopro" element={<MonitoreoPro />} />
         <Route path="/globaltrack" element={<GlobalTrack />} />
-         <Route path="/seguridadinterna" element={<SeguridadInterna />} />
+      
       </Route>
 
       {/* =========================
