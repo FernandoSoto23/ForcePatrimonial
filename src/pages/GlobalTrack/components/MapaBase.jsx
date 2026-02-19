@@ -105,6 +105,7 @@ export default function MapaBase({
   /* =========================
      HELPERS
   ========================= */
+
   const getLat = (u) => Number(u.lat ?? u.latitude ?? u.latitud);
   const getLon = (u) => Number(u.lon ?? u.lng ?? u.longitude ?? u.longitud);
 
@@ -174,58 +175,127 @@ export default function MapaBase({
   /* =========================
      ENSURE ICON EXISTS
   ========================= */
-  const ensureUnitIcon = (map, cb) => {
-    const arrowReady = map.hasImage("unit-arrow");
-    const dotReady = map.hasImage("unit-dot");
+  /* =========================
+   ⚠️ ENSURE RISK ICON
+========================= */
+  /* =========================
+   ⚠️ ENSURE RISK ICON PRO
+========================= */
+  const ensureLowSignalIcon = (map, cb) => {
+    if (map.hasImage("low-signal-icon")) {
+      cb();
+      return;
+    }
 
-    if (arrowReady && dotReady) { cb(); return; }
+    const svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+    <rect x="8" y="40" width="10" height="16" rx="3" fill="#22c55e"/>
+    <rect x="22" y="30" width="10" height="26" rx="3" fill="#d1d5db"/>
+    <rect x="36" y="20" width="10" height="36" rx="3" fill="#d1d5db"/>
+    <rect x="50" y="10" width="10" height="46" rx="3" fill="#d1d5db"/>
+    <rect x="26" y="6" width="12" height="20" rx="6" fill="#ef4444"/>
+    <circle cx="32" cy="34" r="5" fill="#ef4444"/>
+  </svg>
+  `;
 
-    let loaded = 0;
-    const done = () => { if (++loaded === 2) cb(); };
+    const img = new Image(64, 64);
+    img.onload = () => {
+      if (!map.hasImage("low-signal-icon")) {
+        map.addImage("low-signal-icon", img);
+      }
+      cb();
+    };
 
-    // ── Flecha moderna sólida ──────────────────────────────────────
-    if (!arrowReady) {
-      const svgArrow = `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-          <!-- Sombra suave -->
-          <ellipse cx="32" cy="58" rx="12" ry="4" fill="rgba(0,0,0,0.25)"/>
-          <!-- Cuerpo de flecha: punta arriba, base redondeada abajo -->
-          <path d="
-            M32 2
-            L54 54
-            Q54 60 48 57
-            L32 49
-            L16 57
-            Q10 60 10 54
-            Z
-          " fill="white"/>
-          <!-- Línea central para dar volumen -->
-          <line x1="32" y1="10" x2="32" y2="46" stroke="rgba(0,0,0,0.15)" stroke-width="2.5" stroke-linecap="round"/>
-        </svg>
-      `;
-      const imgArrow = new Image(44, 44);
-      imgArrow.onload = () => {
-        if (!map.hasImage("unit-arrow")) map.addImage("unit-arrow", imgArrow, { sdf: true });
-        done();
-      };
-      imgArrow.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgArrow);
-    } else { done(); }
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  };
 
-    // ── Badge de estado (círculo sólido, SDF para recolorear) ──────
-    if (!dotReady) {
-      const svgDot = `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="10" fill="white"/>
-          <circle cx="12" cy="12" r="7"  fill="white"/>
-        </svg>
-      `;
-      const imgDot = new Image(20, 20);
-      imgDot.onload = () => {
-        if (!map.hasImage("unit-dot")) map.addImage("unit-dot", imgDot, { sdf: true });
-        done();
-      };
-      imgDot.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgDot);
-    } else { done(); }
+  const ensureWorkshopIcon = (map, cb) => {
+    if (map.hasImage("workshop-icon")) {
+      cb();
+      return;
+    }
+
+    const svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+    <g fill="#111827">
+      <path d="M38 8a10 10 0 0 0-6 17L18 39l-4 12 12-4 14-14a10 10 0 0 0-2-25z"/>
+      <rect x="10" y="6" width="6" height="24" rx="2"/>
+      <rect x="8" y="28" width="10" height="6" rx="2"/>
+    </g>
+  </svg>
+  `;
+
+    const img = new Image(64, 64);
+    img.onload = () => {
+      if (!map.hasImage("workshop-icon")) {
+        map.addImage("workshop-icon", img);
+      }
+      cb();
+    };
+
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  };
+
+
+  const ensureRiskIcon = (map, cb) => {
+    if (map.hasImage("risk-icon")) {
+      cb();
+      return;
+    }
+
+    const svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+    <!-- Sombra suave -->
+    <path d="M32 6 L60 54 H4 Z" fill="#d4a600"/>
+
+    <!-- Triángulo principal -->
+    <path d="M32 8 L58 52 H6 Z"
+          fill="#facc15"
+          stroke="#eab308"
+          stroke-width="3"
+          stroke-linejoin="round"/>
+
+    <!-- Signo ! -->
+    <rect x="29" y="24" width="6" height="16" rx="3" fill="#ffffff"/>
+    <circle cx="32" cy="46" r="4" fill="#ffffff"/>
+  </svg>
+  `;
+
+    const img = new Image(64, 64);
+    img.onload = () => {
+      if (!map.hasImage("risk-icon")) {
+        map.addImage("risk-icon", img); // 🔥 SIN sdf para mantener colores exactos
+      }
+      cb();
+    };
+
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  };
+  const ensureRestaurantIcon = (map, cb) => {
+    if (map.hasImage("restaurant-icon")) {
+      cb();
+      return;
+    }
+
+    const svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+    <!-- Plato -->
+    <circle cx="32" cy="32" r="18" fill="#ffffff" stroke="#9ca3af" stroke-width="3"/>
+    <!-- Cubiertos -->
+    <rect x="20" y="14" width="4" height="20" rx="2" fill="#374151"/>
+    <rect x="40" y="14" width="4" height="20" rx="2" fill="#374151"/>
+    <rect x="18" y="12" width="8" height="4" rx="2" fill="#374151"/>
+    <rect x="38" y="12" width="8" height="4" rx="2" fill="#374151"/>
+  </svg>
+  `;
+
+    const img = new Image(64, 64);
+    img.onload = () => {
+      map.addImage("restaurant-icon", img);
+      cb();
+    };
+
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   };
 
   /* =========================
@@ -819,8 +889,32 @@ export default function MapaBase({
   /* =========================
      DRAW UNITS
   ========================= */
+  const ensureUnitIcon = (map, cb) => {
+    if (map.hasImage("unit-arrow")) {
+      cb();
+      return;
+    }
+
+    const svgArrow = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+      <path d="M32 2 L54 54 L32 46 L10 54 Z" fill="white"/>
+    </svg>
+  `;
+
+    const img = new Image(44, 44);
+    img.onload = () => {
+      if (!map.hasImage("unit-arrow")) {
+        map.addImage("unit-arrow", img, { sdf: true });
+      }
+      cb();
+    };
+
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgArrow);
+  };
+
   const drawUnits = (map) => {
     ensureUnitIcon(map, () => {
+
       const features = units
         .map((u) => {
           const lat = getLat(u);
@@ -848,7 +942,10 @@ export default function MapaBase({
               type: "Point",
               coordinates: [lon, lat],
             },
+
+
           };
+
         })
         .filter(Boolean);
 
@@ -954,63 +1051,211 @@ export default function MapaBase({
     if (!geocercasGeoJSON) return;
 
     if (map.getSource("geocercas")) {
-      // ✅ Solo actualizar datos si el source ya existe
       map.getSource("geocercas").setData(geocercasGeoJSON);
       return;
     }
 
-    // Reset flag de listeners al crear de nuevo
-    geocercasListenersAddedRef.current = false;
+    map.addSource("geocercas", {
+      type: "geojson",
+      data: geocercasGeoJSON,
+    });
 
-    map.addSource("geocercas", { type: "geojson", data: geocercasGeoJSON });
+    const isRiesgo = [
+      ">=",
+      ["index-of", "riesgo", ["downcase", ["coalesce", ["get", "name"], ""]]],
+      0,
+    ];
 
-    // ✅ Verificar antes de agregar cada layer
-    if (!map.getLayer("geocercas-fill")) {
+    const isBajaCobertura = [
+      ">=",
+      ["index-of", "baja cobertura", ["downcase", ["coalesce", ["get", "name"], ""]]],
+      0,
+    ];
+    const isPA = [
+      "all",
+      [">=", ["index-of", "p.a", ["downcase", ["coalesce", ["get", "name"], ""]]], 0]
+    ];
+
+
+    /* =========================
+       POLÍGONO
+    ========================= */
+
+    map.addLayer({
+      id: "geocercas-fill",
+      type: "fill",
+      source: "geocercas",
+      paint: {
+        "fill-color": [
+          "case",
+          isRiesgo, "#dc2626",
+          isBajaCobertura, "#facc15",
+          "#16a34a"
+        ],
+        "fill-opacity": 0.18,
+      },
+    });
+
+    map.addLayer({
+      id: "geocercas-line",
+      type: "line",
+      source: "geocercas",
+      paint: {
+        "line-color": [
+          "case",
+          isRiesgo, "#7f1d1d",
+          isBajaCobertura, "#a16207",
+          "#15803d"
+        ],
+        "line-width": 2,
+      },
+    });
+
+    /* =========================
+       ICONO RIESGO
+    ========================= */
+    ensureRiskIcon(map, () => {
       map.addLayer({
-        id: "geocercas-fill",
-        type: "fill",
-        source: "geocercas",
-        paint: {
-          "fill-color": "#16a34a",
-          "fill-opacity": 0.18,
-        },
-      });
-    }
-
-    if (!map.getLayer("geocercas-line")) {
-      map.addLayer({
-        id: "geocercas-line",
-        type: "line",
-        source: "geocercas",
-        paint: {
-          "line-color": "#15803d",
-          "line-width": 2,
-        },
-      });
-    }
-
-    if (!map.getLayer("geocercas-label")) {
-      map.addLayer({
-        id: "geocercas-label",
+        id: "geocercas-risk-icon",
         type: "symbol",
         source: "geocercas",
+        filter: isRiesgo,
         layout: {
-          "text-field": ["get", "name"],
-          "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
-          "text-size": 12,
-          "text-anchor": "center",
-          "text-justify": "center",
-          "text-max-width": 10,
-          "symbol-placement": "point",
-        },
-        paint: {
-          "text-color": "#14532d",
-          "text-halo-color": "#ffffff",
-          "text-halo-width": 2,
+          "icon-image": "risk-icon",
+
+          "icon-size": [
+            "interpolate", ["linear"], ["zoom"],
+            5, 0.35,
+            10, 0.5,
+            14, 0.75,
+            18, 1.0
+          ],
+
+          "icon-anchor": "bottom",
+
+          "icon-offset": [
+            "interpolate", ["linear"], ["zoom"],
+            5, [0, -1],
+            14, [0, -3],
+            18, [0, -4]
+          ],
+
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
         },
       });
-    }
+    });
+
+    /* =========================
+       ICONO BAJA COBERTURA
+    ========================= */
+    ensureLowSignalIcon(map, () => {
+      map.addLayer({
+        id: "geocercas-low-signal-icon",
+        type: "symbol",
+        source: "geocercas",
+        filter: isBajaCobertura,
+        layout: {
+          "icon-image": "low-signal-icon",
+
+          "icon-size": [
+            "interpolate", ["linear"], ["zoom"],
+            5, 0.30,
+            10, 0.5,
+            14, 0.7,
+            18, 0.95
+          ],
+
+          "icon-anchor": "bottom",
+
+          "icon-offset": [
+            "interpolate", ["linear"], ["zoom"],
+            5, [0, -1],
+            14, [0, -3],
+            18, [0, -4]
+          ],
+
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+        },
+      });
+    });
+    ensureRestaurantIcon(map, () => {
+      map.addLayer({
+        id: "geocercas-pa-icon",
+        type: "symbol",
+        source: "geocercas",
+        filter: isPA,
+        layout: {
+          "icon-image": "restaurant-icon",
+
+          "icon-size": [
+            "interpolate", ["linear"], ["zoom"],
+            5, 0.30,
+            10, 0.5,
+            14, 0.7,
+            18, 0.9
+          ],
+
+          "icon-anchor": "bottom",
+
+          "icon-offset": [
+            "interpolate", ["linear"], ["zoom"],
+            5, [0, -1],
+            14, [0, -3],
+            18, [0, -4]
+          ],
+
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+        },
+      });
+    });
+
+    /* =========================
+       LABEL
+    ========================= */
+    map.addLayer({
+      id: "geocercas-label",
+      type: "symbol",
+      source: "geocercas",
+      minzoom: 8,
+      layout: {
+        "text-field": ["get", "name"],
+        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+
+        "text-size": [
+          "interpolate", ["linear"], ["zoom"],
+          5, 9,
+          10, 11,
+          14, 13,
+          18, 16
+        ],
+
+        "text-anchor": "top",
+
+        "text-offset": [
+          "interpolate", ["linear"], ["zoom"],
+          5, [0, 0.3],
+          14, [0, 0.6],
+          18, [0, 0.8]
+        ],
+
+        "symbol-placement": "point",
+      },
+      paint: {
+        "text-color": [
+          "case",
+          isRiesgo, "#7f1d1d",
+          isBajaCobertura, "#713f12",
+          "#14532d"
+        ],
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 2,
+      },
+    });
   };
+
 
   /* =========================
      GEOCERCAS LINEALES — ✅ FIX COMPLETO
