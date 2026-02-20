@@ -173,19 +173,10 @@ export default function MapaBase({
   };
 
   /* =========================
-     ENSURE ICON EXISTS
+   ⚠️ ENSURE ICONS
   ========================= */
-  /* =========================
-   ⚠️ ENSURE RISK ICON
-========================= */
-  /* =========================
-   ⚠️ ENSURE RISK ICON PRO
-========================= */
   const ensureLowSignalIcon = (map, cb) => {
-    if (map.hasImage("low-signal-icon")) {
-      cb();
-      return;
-    }
+    if (map.hasImage("low-signal-icon")) { cb(); return; }
 
     const svg = `
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
@@ -195,25 +186,15 @@ export default function MapaBase({
     <rect x="50" y="10" width="10" height="46" rx="3" fill="#d1d5db"/>
     <rect x="26" y="6" width="12" height="20" rx="6" fill="#ef4444"/>
     <circle cx="32" cy="34" r="5" fill="#ef4444"/>
-  </svg>
-  `;
+  </svg>`;
 
     const img = new Image(64, 64);
-    img.onload = () => {
-      if (!map.hasImage("low-signal-icon")) {
-        map.addImage("low-signal-icon", img);
-      }
-      cb();
-    };
-
+    img.onload = () => { if (!map.hasImage("low-signal-icon")) map.addImage("low-signal-icon", img); cb(); };
     img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   };
 
   const ensureWorkshopIcon = (map, cb) => {
-    if (map.hasImage("workshop-icon")) {
-      cb();
-      return;
-    }
+    if (map.hasImage("workshop-icon")) { cb(); return; }
 
     const svg = `
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
@@ -222,79 +203,43 @@ export default function MapaBase({
       <rect x="10" y="6" width="6" height="24" rx="2"/>
       <rect x="8" y="28" width="10" height="6" rx="2"/>
     </g>
-  </svg>
-  `;
+  </svg>`;
 
     const img = new Image(64, 64);
-    img.onload = () => {
-      if (!map.hasImage("workshop-icon")) {
-        map.addImage("workshop-icon", img);
-      }
-      cb();
-    };
-
+    img.onload = () => { if (!map.hasImage("workshop-icon")) map.addImage("workshop-icon", img); cb(); };
     img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   };
-
 
   const ensureRiskIcon = (map, cb) => {
-    if (map.hasImage("risk-icon")) {
-      cb();
-      return;
-    }
+    if (map.hasImage("risk-icon")) { cb(); return; }
 
     const svg = `
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-    <!-- Sombra suave -->
     <path d="M32 6 L60 54 H4 Z" fill="#d4a600"/>
-
-    <!-- Triángulo principal -->
-    <path d="M32 8 L58 52 H6 Z"
-          fill="#facc15"
-          stroke="#eab308"
-          stroke-width="3"
-          stroke-linejoin="round"/>
-
-    <!-- Signo ! -->
+    <path d="M32 8 L58 52 H6 Z" fill="#facc15" stroke="#eab308" stroke-width="3" stroke-linejoin="round"/>
     <rect x="29" y="24" width="6" height="16" rx="3" fill="#ffffff"/>
     <circle cx="32" cy="46" r="4" fill="#ffffff"/>
-  </svg>
-  `;
+  </svg>`;
 
     const img = new Image(64, 64);
-    img.onload = () => {
-      if (!map.hasImage("risk-icon")) {
-        map.addImage("risk-icon", img); // 🔥 SIN sdf para mantener colores exactos
-      }
-      cb();
-    };
-
+    img.onload = () => { if (!map.hasImage("risk-icon")) map.addImage("risk-icon", img); cb(); };
     img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   };
+
   const ensureRestaurantIcon = (map, cb) => {
-    if (map.hasImage("restaurant-icon")) {
-      cb();
-      return;
-    }
+    if (map.hasImage("restaurant-icon")) { cb(); return; }
 
     const svg = `
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-    <!-- Plato -->
     <circle cx="32" cy="32" r="18" fill="#ffffff" stroke="#9ca3af" stroke-width="3"/>
-    <!-- Cubiertos -->
     <rect x="20" y="14" width="4" height="20" rx="2" fill="#374151"/>
     <rect x="40" y="14" width="4" height="20" rx="2" fill="#374151"/>
     <rect x="18" y="12" width="8" height="4" rx="2" fill="#374151"/>
     <rect x="38" y="12" width="8" height="4" rx="2" fill="#374151"/>
-  </svg>
-  `;
+  </svg>`;
 
     const img = new Image(64, 64);
-    img.onload = () => {
-      map.addImage("restaurant-icon", img);
-      cb();
-    };
-
+    img.onload = () => { map.addImage("restaurant-icon", img); cb(); };
     img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   };
 
@@ -302,20 +247,13 @@ export default function MapaBase({
      🔥 GEO HELPERS
   ========================= */
   const pointInPolygon = (point, polygon) => {
-    let x = point[0],
-      y = point[1];
+    let x = point[0], y = point[1];
     let inside = false;
 
     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-      const xi = polygon[i][0],
-        yi = polygon[i][1];
-      const xj = polygon[j][0],
-        yj = polygon[j][1];
-
-      const intersect =
-        yi > y !== yj > y &&
-        x < ((xj - xi) * (y - yi)) / (yj - yi + 0.0) + xi;
-
+      const xi = polygon[i][0], yi = polygon[i][1];
+      const xj = polygon[j][0], yj = polygon[j][1];
+      const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi + 0.0) + xi;
       if (intersect) inside = !inside;
     }
 
@@ -329,26 +267,22 @@ export default function MapaBase({
     for (const f of features) {
       const g = f?.geometry;
       if (!g) continue;
-
       const name = f?.properties?.name || "Geocerca";
 
       if (g.type === "Polygon") {
         const ring = g.coordinates?.[0];
         if (Array.isArray(ring) && ring.length > 3) {
           if (pointInPolygon(coords, ring)) return name;
-
           const swapped = ring.map(([a, b]) => [b, a]);
           if (pointInPolygon(coords, swapped)) return name;
         }
       }
 
       if (g.type === "MultiPolygon") {
-        const polys = g.coordinates || [];
-        for (const p of polys) {
+        for (const p of g.coordinates || []) {
           const ring = p?.[0];
           if (Array.isArray(ring) && ring.length > 3) {
             if (pointInPolygon(coords, ring)) return name;
-
             const swapped = ring.map(([a, b]) => [b, a]);
             if (pointInPolygon(coords, swapped)) return name;
           }
@@ -360,32 +294,17 @@ export default function MapaBase({
   };
 
   const distPointToSegment = (p, a, b) => {
-    const px = p[0],
-      py = p[1];
-    const ax = a[0],
-      ay = a[1];
-    const bx = b[0],
-      by = b[1];
-
-    const dx = bx - ax;
-    const dy = by - ay;
+    const px = p[0], py = p[1];
+    const ax = a[0], ay = a[1];
+    const bx = b[0], by = b[1];
+    const dx = bx - ax, dy = by - ay;
 
     if (dx === 0 && dy === 0) {
-      const vx = px - ax;
-      const vy = py - ay;
-      return Math.sqrt(vx * vx + vy * vy);
+      return Math.sqrt((px - ax) ** 2 + (py - ay) ** 2);
     }
 
-    const t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy);
-    const tt = Math.max(0, Math.min(1, t));
-
-    const cx = ax + tt * dx;
-    const cy = ay + tt * dy;
-
-    const vx = px - cx;
-    const vy = py - cy;
-
-    return Math.sqrt(vx * vx + vy * vy);
+    const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)));
+    return Math.sqrt((px - (ax + t * dx)) ** 2 + (py - (ay + t * dy)) ** 2);
   };
 
   const findLinearGeofenceName = (coords) => {
@@ -397,16 +316,12 @@ export default function MapaBase({
     for (const f of features) {
       const g = f?.geometry;
       if (!g || g.type !== "LineString") continue;
-
       const name = f?.properties?.name || "Lineal";
       const line = g.coordinates || [];
       if (line.length < 2) continue;
 
       for (let i = 0; i < line.length - 1; i++) {
-        const a = line[i];
-        const b = line[i + 1];
-        const d = distPointToSegment(coords, a, b);
-        if (d <= TH) return name;
+        if (distPointToSegment(coords, line[i], line[i + 1]) <= TH) return name;
       }
     }
 
@@ -419,127 +334,29 @@ export default function MapaBase({
   const movedEnoughForGeo = (coords) => {
     const last = lastGeoCheckPosRef.current;
     if (!last) return true;
-
     const TH = 0.00018;
-    const dx = Math.abs(last[0] - coords[0]);
-    const dy = Math.abs(last[1] - coords[1]);
-    return dx > TH || dy > TH;
+    return Math.abs(last[0] - coords[0]) > TH || Math.abs(last[1] - coords[1]) > TH;
   };
 
   /* =========================
      ✅ HOVER TOOLTIP
   ========================= */
-  const buildGeofenceHoverHTML = ({ name, type }) => {
-    return `
-    <div style="
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-      min-width: 160px;
-      padding: 6px 8px;
-      font-size: 12px;
-      line-height: 1.25;
-    ">
-      <div style="font-weight:800; color:#111827;">
-        📍 ${name || "Geocerca"}
-      </div>
-      <div style="margin-top:2px; color:#374151;">
-        Tipo: ${type}
-      </div>
-    </div>
-  `;
-  };
+  const buildGeofenceHoverHTML = ({ name, type }) => `
+    <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;min-width:160px;padding:6px 8px;font-size:12px;line-height:1.25;">
+      <div style="font-weight:800;color:#111827;">📍 ${name || "Geocerca"}</div>
+      <div style="margin-top:2px;color:#374151;">Tipo: ${type}</div>
+    </div>`;
 
   const buildHoverHTML = ({ name, speed, speedLimit }) => {
     const hasLimit = speedLimit != null;
     const exceeded = hasLimit && speed > speedLimit;
 
     return `
-      <div style="
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-        min-width: 180px;
-        padding: 6px 8px;
-        font-size: 12px;
-        line-height: 1.25;
-      ">
-        <div style="font-weight:800; color:#111827;">${name || "Unidad"}</div>
-        <div style="margin-top:2px; color:#374151;">
-          🚚 Velocidad: <b>${speed}</b> km/h
-        </div>
-        ${hasLimit
-        ? `<div style="margin-top:2px; color:#374151;">
-                 ⚠️ Límite: <b>${speedLimit}</b> km/h
-                 ${exceeded
-          ? `<span style="margin-left:6px; color:#ef4444; font-weight:800;">🚨</span>`
-          : ``
-        }
-               </div>`
-        : ``
-      }
-      </div>
-    `;
-  };
-
-  /* =========================
-     ✅ POPUP FOLLOW (panel)
-  ========================= */
-  const buildPopupHTML = ({ name, speed, speedLimit, geoNormal, geoLineal }) => {
-    const speedColor = speed > 0 ? "#16a34a" : "#6b7280";
-    const statusText =
-      geoNormal || geoLineal ? "Dentro de geocerca" : "Fuera de geocerca";
-    const statusColor = geoNormal || geoLineal ? "#16a34a" : "#ef4444";
-
-    const hasLimit = speedLimit != null;
-    const exceeded = hasLimit && speed > speedLimit;
-
-    return `
-      <div style="
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-        min-width: 230px;
-        padding: 10px 12px;
-      ">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-          <div style="font-weight:800; font-size:14px; color:#111827;">
-            ${name || "Unidad"}
-          </div>
-          <div style="
-            font-size:12px;
-            font-weight:700;
-            padding: 4px 8px;
-            border-radius: 999px;
-            background: ${speed > 0 ? "#dcfce7" : "#f3f4f6"};
-            color: ${speedColor};
-            white-space:nowrap;
-          ">
-            ${speed} km/h
-          </div>
-        </div>
-
-        ${hasLimit
-        ? `
-          <div style="margin-top:6px; font-size:12px; color:#374151;">
-            ⚠️ Límite: <b>${speedLimit}</b> km/h
-            ${exceeded
-          ? `<span style="margin-left:8px; color:#ef4444; font-weight:800;">🚨 Exceso</span>`
-          : ``
-        }
-          </div>
-        `
-        : ``
-      }
-
-        <div style="margin-top:6px; font-size:12px; color:${statusColor}; font-weight:700;">
-          ${statusText}
-        </div>
-
-        <div style="margin-top:8px; font-size:12px; color:#374151; line-height:1.35;">
-          ${geoNormal ? `<div><b>Geocerca:</b> ${geoNormal}</div>` : ""}
-          ${geoLineal ? `<div><b>Lineal:</b> ${geoLineal}</div>` : ""}
-          ${!geoNormal && !geoLineal
-        ? `<div style="color:#6b7280;">Sin geocerca</div>`
-        : ""
-      }
-        </div>
-      </div>
-    `;
+      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;min-width:180px;padding:6px 8px;font-size:12px;line-height:1.25;">
+        <div style="font-weight:800;color:#111827;">${name || "Unidad"}</div>
+        <div style="margin-top:2px;color:#374151;">🚚 Velocidad: <b>${speed}</b> km/h</div>
+        ${hasLimit ? `<div style="margin-top:2px;color:#374151;">⚠️ Límite: <b>${speedLimit}</b> km/h ${exceeded ? `<span style="margin-left:6px;color:#ef4444;font-weight:800;">🚨</span>` : ``}</div>` : ``}
+      </div>`;
   };
 
   /* =========================
@@ -547,13 +364,9 @@ export default function MapaBase({
   ========================= */
   const formatHistoryTime = (timestamp) => {
     if (!timestamp) return 'N/A';
-    const date = new Date(timestamp * 1000);
-    return date.toLocaleString('es-MX', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return new Date(timestamp * 1000).toLocaleString('es-MX', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
     });
   };
 
@@ -597,28 +410,22 @@ export default function MapaBase({
   }, [historyData, showHistoryRoute]);
 
   /* =========================
-     🟡 DIBUJAR PARADAS HISTÓRICAS (WIALON)
+     🟡 DIBUJAR PARADAS HISTÓRICAS
   ========================= */
   const drawHistoryStops = (map) => {
     if (!showHistoryRoute || !historyData.length) {
       historyStopsLayerAddedRef.current = false;
-
-      // ✅ FIX: limpiar layers y sources de paradas al desactivar
       if (map.getLayer("history-stops-layer")) map.removeLayer("history-stops-layer");
       if (map.getSource("history-stops")) map.removeSource("history-stops");
       return;
     }
 
-    // limpiar si ya existían
     if (map.getLayer("history-stops-layer")) map.removeLayer("history-stops-layer");
     if (map.getSource("history-stops")) map.removeSource("history-stops");
 
     const features = calculateStops.map(stop => ({
       type: "Feature",
-      geometry: {
-        type: "Point",
-        coordinates: [stop.lon, stop.lat],
-      },
+      geometry: { type: "Point", coordinates: [stop.lon, stop.lat] },
       properties: {
         stopIndex: stop.index,
         duration: stop.duration,
@@ -646,26 +453,16 @@ export default function MapaBase({
       },
     });
 
-    // ✅ FIX: listeners solo una vez por layer creado
     map.on("mouseenter", "history-stops-layer", (e) => {
       map.getCanvas().style.cursor = "pointer";
       const f = e.features[0];
       const mins = Math.round(f.properties.duration / 60);
 
       hoverPopupRef.current = new mapboxgl.Popup({
-        closeButton: false,
-        closeOnClick: false,
-        offset: 15,
-        anchor: 'bottom-left'
+        closeButton: false, closeOnClick: false, offset: 15, anchor: 'bottom-left'
       })
         .setLngLat(e.lngLat)
-        .setHTML(`
-        <div style="font-family:system-ui;font-size:12px">
-          <b>⏸ Parada ${mins}m</b><br/>
-          ${formatHistoryTime(f.properties.from)} →
-          ${formatHistoryTime(f.properties.to)}
-        </div>
-      `)
+        .setHTML(`<div style="font-family:system-ui;font-size:12px"><b>⏸ Parada ${mins}m</b><br/>${formatHistoryTime(f.properties.from)} → ${formatHistoryTime(f.properties.to)}</div>`)
         .addTo(map);
     });
 
@@ -682,10 +479,7 @@ export default function MapaBase({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || selectedStopIndex === null || !calculateStops.length) {
-      if (stopPopupRef.current) {
-        stopPopupRef.current.remove();
-        stopPopupRef.current = null;
-      }
+      if (stopPopupRef.current) { stopPopupRef.current.remove(); stopPopupRef.current = null; }
       return;
     }
 
@@ -695,62 +489,33 @@ export default function MapaBase({
     const coords = [stop.lon, stop.lat];
     const mins = Math.round(stop.duration / 60);
 
-    map.flyTo({
-      center: coords,
-      zoom: 16,
-      duration: 1000,
-    });
+    map.flyTo({ center: coords, zoom: 16, duration: 1000 });
 
-    if (stopPopupRef.current) {
-      stopPopupRef.current.remove();
-    }
+    if (stopPopupRef.current) stopPopupRef.current.remove();
 
     stopPopupRef.current = new mapboxgl.Popup({
-      closeButton: true,
-      closeOnClick: false,
-      offset: 15,
-      anchor: 'bottom-left'
+      closeButton: true, closeOnClick: false, offset: 15, anchor: 'bottom-left'
     })
       .setLngLat(coords)
       .setHTML(`
-        <div style="
-          font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-          padding: 8px 10px;
-          min-width: 220px;
-        ">
-          <div style="
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 6px;
-          ">
-            <div style="
-              width: 12px;
-              height: 12px;
-              background: #facc15;
-              border-radius: 50%;
-              border: 2px solid #000;
-            "></div>
-            <strong style="font-size: 14px;">⏸ Parada ${mins}m</strong>
+        <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;padding:8px 10px;min-width:220px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <div style="width:12px;height:12px;background:#facc15;border-radius:50%;border:2px solid #000;"></div>
+            <strong style="font-size:14px;">⏸ Parada ${mins}m</strong>
           </div>
-          <div style="font-size: 12px; color: #374151; line-height: 1.4;">
+          <div style="font-size:12px;color:#374151;line-height:1.4;">
             ${formatHistoryTime(stop.from)} — ${formatHistoryTime(stop.to).split(', ')[1]}
           </div>
-        </div>
-      `)
+        </div>`)
       .addTo(map);
 
-    stopPopupRef.current.on('close', () => {
-      stopPopupRef.current = null;
-    });
-
+    stopPopupRef.current.on('close', () => { stopPopupRef.current = null; });
   }, [selectedStopIndex, calculateStops]);
 
   /* =========================
      ✅ DIBUJAR RUTA HISTÓRICA
   ========================= */
   const drawHistoryRoute = (map) => {
-    // Limpiar marcadores anteriores
     historyMarkersRef.current.forEach(marker => marker.remove());
     historyMarkersRef.current = [];
 
@@ -762,158 +527,99 @@ export default function MapaBase({
     }
 
     const coordinates = historyData
-      .filter(point =>
-        Number.isFinite(point.lat) &&
-        Number.isFinite(point.lon ?? point.lng)
-      )
-      .map(point => [
-        point.lon ?? point.lng,
-        point.lat
-      ]);
+      .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon ?? p.lng))
+      .map(p => [p.lon ?? p.lng, p.lat]);
 
     if (coordinates.length === 0) return;
 
     const geojson = {
       type: 'Feature',
       properties: {},
-      geometry: {
-        type: 'LineString',
-        coordinates: coordinates
-      }
+      geometry: { type: 'LineString', coordinates },
     };
 
     const beforeId = map.getLayer("units-layer") ? "units-layer" : undefined;
 
     if (!map.getSource('history-route')) {
-      map.addSource('history-route', {
-        type: 'geojson',
-        data: geojson
-      });
+      map.addSource('history-route', { type: 'geojson', data: geojson });
     } else {
       map.getSource('history-route').setData(geojson);
     }
 
     if (!map.getLayer('history-route-outline')) {
-      map.addLayer({
-        id: 'history-route-outline',
-        type: 'line',
-        source: 'history-route',
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: {
-          'line-color': '#000000',
-          'line-width': 7,
-          'line-opacity': 0.4
-        }
-      }, beforeId);
+      map.addLayer({ id: 'history-route-outline', type: 'line', source: 'history-route', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#000000', 'line-width': 7, 'line-opacity': 0.4 } }, beforeId);
     }
 
     if (!map.getLayer('history-route-layer')) {
-      map.addLayer({
-        id: 'history-route-layer',
-        type: 'line',
-        source: 'history-route',
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: {
-          'line-color': '#9716a3',
-          'line-width': 4,
-          'line-opacity': 0.85
-        }
-      }, beforeId);
+      map.addLayer({ id: 'history-route-layer', type: 'line', source: 'history-route', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#9716a3', 'line-width': 4, 'line-opacity': 0.85 } }, beforeId);
     }
 
     // Marcador INICIO (verde)
     const startEl = document.createElement('div');
-    startEl.style.cssText = `
-      background-color: #16a34a;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      border: 3px solid white;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      cursor: pointer;
-    `;
-
+    startEl.style.cssText = `background:#16a34a;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;`;
     const startMarker = new mapboxgl.Marker({ element: startEl })
       .setLngLat(coordinates[0])
-      .setPopup(
-        new mapboxgl.Popup({ offset: 25 })
-          .setHTML(`
-            <div style="padding: 8px; font-family: system-ui;">
-              <strong style="color: #16a34a;">🟢 Inicio</strong><br/>
-              <small>${formatHistoryTime(historyData[0].time)}</small>
-            </div>
-          `)
-      )
+      .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`<div style="padding:8px;font-family:system-ui;"><strong style="color:#16a34a;">🟢 Inicio</strong><br/><small>${formatHistoryTime(historyData[0].time)}</small></div>`))
       .addTo(map);
-
     historyMarkersRef.current.push(startMarker);
 
     // Marcador FIN (rojo)
     const endEl = document.createElement('div');
-    endEl.style.cssText = `
-      background-color: #dc2626;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      border: 3px solid white;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      cursor: pointer;
-    `;
-
+    endEl.style.cssText = `background:#dc2626;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;`;
     const endMarker = new mapboxgl.Marker({ element: endEl })
       .setLngLat(coordinates[coordinates.length - 1])
-      .setPopup(
-        new mapboxgl.Popup({ offset: 25 })
-          .setHTML(`
-            <div style="padding: 8px; font-family: system-ui;">
-              <strong style="color: #dc2626;">🔴 Fin</strong><br/>
-              <small>${formatHistoryTime(historyData[historyData.length - 1].time)}</small>
-            </div>
-          `)
-      )
+      .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`<div style="padding:8px;font-family:system-ui;"><strong style="color:#dc2626;">🔴 Fin</strong><br/><small>${formatHistoryTime(historyData[historyData.length - 1].time)}</small></div>`))
       .addTo(map);
-
     historyMarkersRef.current.push(endMarker);
 
-    const bounds = coordinates.reduce((bounds, coord) => {
-      return bounds.extend(coord);
-    }, new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));
-
-    map.fitBounds(bounds, {
-      padding: { top: 50, bottom: 50, left: 450, right: 50 },
-      maxZoom: 15,
-      duration: 1000
-    });
+    const bounds = coordinates.reduce(
+      (b, c) => b.extend(c),
+      new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+    );
+    map.fitBounds(bounds, { padding: { top: 50, bottom: 50, left: 450, right: 50 }, maxZoom: 15, duration: 1000 });
   };
 
   /* =========================
-     DRAW UNITS
+     DRAW UNITS — flecha si mueve, cuadro si detenida
   ========================= */
-  const ensureUnitIcon = (map, cb) => {
-    if (map.hasImage("unit-arrow")) {
-      cb();
-      return;
+  const ensureBothIcons = (map, cb) => {
+    let pending = 0;
+    const done = () => { if (--pending === 0) cb(); };
+
+    // ── Flecha (movimiento) ──────────────────────────────────────
+    if (!map.hasImage("unit-arrow")) {
+      pending++;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+        <path d="M32 2 L54 54 L32 46 L10 54 Z" fill="white"/>
+      </svg>`;
+      const img = new Image(44, 44);
+      img.onload = () => {
+        if (!map.hasImage("unit-arrow")) map.addImage("unit-arrow", img, { sdf: true });
+        done();
+      };
+      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
     }
 
-    const svgArrow = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-      <path d="M32 2 L54 54 L32 46 L10 54 Z" fill="white"/>
-    </svg>
-  `;
+    // ── Cuadro redondeado (detenida) ─────────────────────────────
+    if (!map.hasImage("unit-square")) {
+      pending++;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+        <rect x="8" y="8" width="48" height="48" rx="10" ry="10" fill="white"/>
+      </svg>`;
+      const img = new Image(44, 44);
+      img.onload = () => {
+        if (!map.hasImage("unit-square")) map.addImage("unit-square", img, { sdf: true });
+        done();
+      };
+      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    }
 
-    const img = new Image(44, 44);
-    img.onload = () => {
-      if (!map.hasImage("unit-arrow")) {
-        map.addImage("unit-arrow", img, { sdf: true });
-      }
-      cb();
-    };
-
-    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgArrow);
+    // Si ambas ya existían
+    if (pending === 0) cb();
   };
 
   const drawUnits = (map) => {
-    ensureUnitIcon(map, () => {
+    ensureBothIcons(map, () => {
 
       const features = units
         .map((u) => {
@@ -922,30 +628,24 @@ export default function MapaBase({
           if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
 
           const name =
-            u.nm ||
-            u.name ||
-            u.alias ||
-            u.device_name ||
-            u.unit_name ||
-            u.unidad ||
-            "";
+            u.nm || u.name || u.alias || u.device_name || u.unit_name || u.unidad || "";
+          const speed = Number(u.speed ?? u.velocidad ?? 0);
 
           return {
             type: "Feature",
             properties: {
               id: getUnitId(u),
               name,
-              speed: Number(u.speed ?? u.velocidad ?? 0),
+              speed,
               heading: getHeading(u),
+              // "arrow" si se mueve, "square" si está detenida
+              iconImage: speed > 0 ? "unit-arrow" : "unit-square",
             },
             geometry: {
               type: "Point",
               coordinates: [lon, lat],
             },
-
-
           };
-
         })
         .filter(Boolean);
 
@@ -954,15 +654,26 @@ export default function MapaBase({
       if (!map.getSource("units")) {
         map.addSource("units", { type: "geojson", data: geojson });
 
-        // ── Capa 1: Flecha moderna con rotación ──────────────────────
         map.addLayer({
           id: "units-layer",
           type: "symbol",
           source: "units",
           layout: {
-            "icon-image": "unit-arrow",
-            "icon-size": 0.72,
-            "icon-rotate": ["get", "heading"],
+            // ✅ Icono dinámico: flecha o cuadro según speed
+            "icon-image": ["get", "iconImage"],
+            "icon-size": [
+              "case",
+              ["==", ["get", "iconImage"], "unit-square"],
+              0.38,   // cuadro — más chico
+              0.72,   // flecha — tamaño normal
+            ],
+            // Solo rota si es flecha (el cuadro no necesita rotar)
+            "icon-rotate": [
+              "case",
+              [">", ["get", "speed"], 0],
+              ["get", "heading"],
+              0,
+            ],
             "icon-rotation-alignment": "map",
             "icon-allow-overlap": true,
             "icon-ignore-placement": true,
@@ -971,44 +682,36 @@ export default function MapaBase({
             "icon-color": [
               "case",
               [">=", ["get", "speed"], 10],
-              "#16a34a",   // verde — en movimiento normal (≥10 km/h)
+              "#16a34a",   // verde — movimiento normal (≥10 km/h)
               [">", ["get", "speed"], 0],
               "#eab308",   // amarillo — velocidad baja (1-9 km/h)
-              "#dc2626",   // rojo — detenido (0 km/h)
+              "#dc2626",   // rojo — detenida → cuadro rojo
             ],
             "icon-halo-color": [
               "case",
               [">=", ["get", "speed"], 10],
-              "#052e16",   // halo verde oscuro
+              "#052e16",
               [">", ["get", "speed"], 0],
-              "#713f12",   // halo amarillo oscuro
-              "#450a0a",   // halo rojo oscuro
+              "#713f12",
+              "#450a0a",
             ],
             "icon-halo-width": 2,
             "icon-opacity": 1,
           },
         });
 
-
-
-        // ✅ FIX: listeners de unidades solo una vez
+        // Listeners — solo una vez
         if (!unitsListenersAddedRef.current) {
           unitsListenersAddedRef.current = true;
 
-          map.on("click", "units-layer", () => {
-            // NO HACER NADA
-          });
+          map.on("click", "units-layer", () => { });
 
           map.on("mousemove", "units-layer", (e) => {
             const f = e.features?.[0];
             if (!f) return;
 
             const id = String(f.properties.id);
-            const name =
-              String(f.properties?.name || "").trim() ||
-              unitNameById.get(id) ||
-              "";
-
+            const name = String(f.properties?.name || "").trim() || unitNameById.get(id) || "";
             const speed = getUnitSpeedById(id);
             const speedFinal = Number.isFinite(speed) ? speed : Number(f.properties.speed ?? 0);
             const speedLimit = getUnitSpeedLimitById(id);
@@ -1017,10 +720,7 @@ export default function MapaBase({
 
             if (!hoverPopupRef.current) {
               hoverPopupRef.current = new mapboxgl.Popup({
-                closeButton: false,
-                closeOnClick: false,
-                offset: 15,
-                anchor: 'bottom-left'
+                closeButton: false, closeOnClick: false, offset: 15, anchor: 'bottom-left'
               });
             }
 
@@ -1038,14 +738,13 @@ export default function MapaBase({
         }
 
       } else {
-        // ✅ Solo actualizar datos, sin tocar layers ni listeners
         map.getSource("units").setData(geojson);
       }
     });
   };
 
   /* =========================
-     GEOCERCAS NORMALES — ✅ FIX COMPLETO
+     GEOCERCAS NORMALES
   ========================= */
   const drawGeocercas = (map) => {
     if (!geocercasGeoJSON) return;
@@ -1055,267 +754,122 @@ export default function MapaBase({
       return;
     }
 
-    map.addSource("geocercas", {
-      type: "geojson",
-      data: geocercasGeoJSON,
-    });
+    map.addSource("geocercas", { type: "geojson", data: geocercasGeoJSON });
 
-    const isRiesgo = [
-      ">=",
-      ["index-of", "riesgo", ["downcase", ["coalesce", ["get", "name"], ""]]],
-      0,
-    ];
-
-    const isBajaCobertura = [
-      ">=",
-      ["index-of", "baja cobertura", ["downcase", ["coalesce", ["get", "name"], ""]]],
-      0,
-    ];
-    const isPA = [
-      "all",
-      [">=", ["index-of", "p.a", ["downcase", ["coalesce", ["get", "name"], ""]]], 0]
-    ];
-
-
-    /* =========================
-       POLÍGONO
-    ========================= */
+    const isRiesgo = [">=", ["index-of", "riesgo", ["downcase", ["coalesce", ["get", "name"], ""]]], 0];
+    const isBajaCobertura = [">=", ["index-of", "baja cobertura", ["downcase", ["coalesce", ["get", "name"], ""]]], 0];
+    const isPA = ["all", [">=", ["index-of", "p.a", ["downcase", ["coalesce", ["get", "name"], ""]]], 0]];
 
     map.addLayer({
-      id: "geocercas-fill",
-      type: "fill",
-      source: "geocercas",
+      id: "geocercas-fill", type: "fill", source: "geocercas",
       paint: {
-        "fill-color": [
-          "case",
-          isRiesgo, "#dc2626",
-          isBajaCobertura, "#facc15",
-          "#16a34a"
-        ],
+        "fill-color": ["case", isRiesgo, "#dc2626", isBajaCobertura, "#facc15", "#16a34a"],
         "fill-opacity": 0.18,
       },
     });
 
     map.addLayer({
-      id: "geocercas-line",
-      type: "line",
-      source: "geocercas",
+      id: "geocercas-line", type: "line", source: "geocercas",
       paint: {
-        "line-color": [
-          "case",
-          isRiesgo, "#7f1d1d",
-          isBajaCobertura, "#a16207",
-          "#15803d"
-        ],
+        "line-color": ["case", isRiesgo, "#7f1d1d", isBajaCobertura, "#a16207", "#15803d"],
         "line-width": 2,
       },
     });
 
-    /* =========================
-       ICONO RIESGO
-    ========================= */
     ensureRiskIcon(map, () => {
       map.addLayer({
-        id: "geocercas-risk-icon",
-        type: "symbol",
-        source: "geocercas",
-        filter: isRiesgo,
+        id: "geocercas-risk-icon", type: "symbol", source: "geocercas", filter: isRiesgo,
         layout: {
           "icon-image": "risk-icon",
-
-          "icon-size": [
-            "interpolate", ["linear"], ["zoom"],
-            5, 0.35,
-            10, 0.5,
-            14, 0.75,
-            18, 1.0
-          ],
-
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 5, 0.35, 10, 0.5, 14, 0.75, 18, 1.0],
           "icon-anchor": "bottom",
-
-          "icon-offset": [
-            "interpolate", ["linear"], ["zoom"],
-            5, [0, -1],
-            14, [0, -3],
-            18, [0, -4]
-          ],
-
-          "icon-allow-overlap": true,
-          "icon-ignore-placement": true,
+          "icon-offset": ["interpolate", ["linear"], ["zoom"], 5, [0, -1], 14, [0, -3], 18, [0, -4]],
+          "icon-allow-overlap": true, "icon-ignore-placement": true,
         },
       });
     });
 
-    /* =========================
-       ICONO BAJA COBERTURA
-    ========================= */
     ensureLowSignalIcon(map, () => {
       map.addLayer({
-        id: "geocercas-low-signal-icon",
-        type: "symbol",
-        source: "geocercas",
-        filter: isBajaCobertura,
+        id: "geocercas-low-signal-icon", type: "symbol", source: "geocercas", filter: isBajaCobertura,
         layout: {
           "icon-image": "low-signal-icon",
-
-          "icon-size": [
-            "interpolate", ["linear"], ["zoom"],
-            5, 0.30,
-            10, 0.5,
-            14, 0.7,
-            18, 0.95
-          ],
-
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 5, 0.30, 10, 0.5, 14, 0.7, 18, 0.95],
           "icon-anchor": "bottom",
-
-          "icon-offset": [
-            "interpolate", ["linear"], ["zoom"],
-            5, [0, -1],
-            14, [0, -3],
-            18, [0, -4]
-          ],
-
-          "icon-allow-overlap": true,
-          "icon-ignore-placement": true,
+          "icon-offset": ["interpolate", ["linear"], ["zoom"], 5, [0, -1], 14, [0, -3], 18, [0, -4]],
+          "icon-allow-overlap": true, "icon-ignore-placement": true,
         },
       });
     });
+
     ensureRestaurantIcon(map, () => {
       map.addLayer({
-        id: "geocercas-pa-icon",
-        type: "symbol",
-        source: "geocercas",
-        filter: isPA,
+        id: "geocercas-pa-icon", type: "symbol", source: "geocercas", filter: isPA,
         layout: {
           "icon-image": "restaurant-icon",
-
-          "icon-size": [
-            "interpolate", ["linear"], ["zoom"],
-            5, 0.30,
-            10, 0.5,
-            14, 0.7,
-            18, 0.9
-          ],
-
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 5, 0.30, 10, 0.5, 14, 0.7, 18, 0.9],
           "icon-anchor": "bottom",
-
-          "icon-offset": [
-            "interpolate", ["linear"], ["zoom"],
-            5, [0, -1],
-            14, [0, -3],
-            18, [0, -4]
-          ],
-
-          "icon-allow-overlap": true,
-          "icon-ignore-placement": true,
+          "icon-offset": ["interpolate", ["linear"], ["zoom"], 5, [0, -1], 14, [0, -3], 18, [0, -4]],
+          "icon-allow-overlap": true, "icon-ignore-placement": true,
         },
       });
     });
 
-    /* =========================
-       LABEL
-    ========================= */
     map.addLayer({
-      id: "geocercas-label",
-      type: "symbol",
-      source: "geocercas",
-      minzoom: 8,
+      id: "geocercas-label", type: "symbol", source: "geocercas", minzoom: 8,
       layout: {
         "text-field": ["get", "name"],
         "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
-
-        "text-size": [
-          "interpolate", ["linear"], ["zoom"],
-          5, 9,
-          10, 11,
-          14, 13,
-          18, 16
-        ],
-
+        "text-size": ["interpolate", ["linear"], ["zoom"], 5, 9, 10, 11, 14, 13, 18, 16],
         "text-anchor": "top",
-
-        "text-offset": [
-          "interpolate", ["linear"], ["zoom"],
-          5, [0, 0.3],
-          14, [0, 0.6],
-          18, [0, 0.8]
-        ],
-
+        "text-offset": ["interpolate", ["linear"], ["zoom"], 5, [0, 0.3], 14, [0, 0.6], 18, [0, 0.8]],
         "symbol-placement": "point",
       },
       paint: {
-        "text-color": [
-          "case",
-          isRiesgo, "#7f1d1d",
-          isBajaCobertura, "#713f12",
-          "#14532d"
-        ],
+        "text-color": ["case", isRiesgo, "#7f1d1d", isBajaCobertura, "#713f12", "#14532d"],
         "text-halo-color": "#ffffff",
         "text-halo-width": 2,
       },
     });
   };
 
-
   /* =========================
-     GEOCERCAS LINEALES — ✅ FIX COMPLETO
+     GEOCERCAS LINEALES
   ========================= */
   const drawGeocercasLineales = (map) => {
     if (!geocercasLinealesGeoJSON) return;
 
     if (map.getSource("geocercas-lineales")) {
-      // ✅ Solo actualizar datos, NO re-agregar layers ni listeners
       map.getSource("geocercas-lineales").setData(geocercasLinealesGeoJSON);
       return;
     }
 
-    // Reset flag de listeners al crear de nuevo
     geocercasLinealesListenersAddedRef.current = false;
 
-    map.addSource("geocercas-lineales", {
-      type: "geojson",
-      data: geocercasLinealesGeoJSON,
-    });
+    map.addSource("geocercas-lineales", { type: "geojson", data: geocercasLinealesGeoJSON });
 
-    // ✅ Verificar antes de agregar el layer
     if (!map.getLayer("geocercas-lineales-layer")) {
       map.addLayer({
-        id: "geocercas-lineales-layer",
-        type: "line",
-        source: "geocercas-lineales",
+        id: "geocercas-lineales-layer", type: "line", source: "geocercas-lineales",
         layout: { "line-join": "round", "line-cap": "round" },
-        paint: {
-          "line-color": "#1e40af",
-          "line-width": 3,
-          "line-opacity": 0.9
-        },
+        paint: { "line-color": "#1e40af", "line-width": 3, "line-opacity": 0.9 },
       });
     }
 
-    // ✅ FIX PRINCIPAL: registrar listeners SOLO UNA VEZ
     if (!geocercasLinealesListenersAddedRef.current) {
       geocercasLinealesListenersAddedRef.current = true;
 
       map.on("mousemove", "geocercas-lineales-layer", (e) => {
         const f = e.features?.[0];
         if (!f) return;
-
         const name = f.properties?.name || "Geocerca lineal";
         map.getCanvas().style.cursor = "pointer";
 
         if (!hoverPopupRef.current) {
-          hoverPopupRef.current = new mapboxgl.Popup({
-            closeButton: false,
-            closeOnClick: false,
-            offset: 15,
-            anchor: 'bottom-left'
-          });
+          hoverPopupRef.current = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 15, anchor: 'bottom-left' });
         }
 
-        hoverPopupRef.current
-          .setLngLat(e.lngLat)
-          .setHTML(buildGeofenceHoverHTML({ name, type: "Lineal" }))
-          .addTo(map);
+        hoverPopupRef.current.setLngLat(e.lngLat).setHTML(buildGeofenceHoverHTML({ name, type: "Lineal" })).addTo(map);
       });
 
       map.on("mouseleave", "geocercas-lineales-layer", () => {
@@ -1331,42 +885,17 @@ export default function MapaBase({
   ========================= */
   const ensureFollowRoute = (map) => {
     if (!map.getSource("follow-route")) {
-      map.addSource("follow-route", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
+      map.addSource("follow-route", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
     }
 
     const beforeId = map.getLayer("units-layer") ? "units-layer" : undefined;
 
     if (!map.getLayer("follow-route-outline")) {
-      map.addLayer(
-        {
-          id: "follow-route-outline",
-          type: "line",
-          source: "follow-route",
-          layout: { "line-join": "round", "line-cap": "round" },
-          paint: { "line-color": "#000", "line-width": 8, "line-opacity": 0.45 },
-        },
-        beforeId
-      );
+      map.addLayer({ id: "follow-route-outline", type: "line", source: "follow-route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#000", "line-width": 8, "line-opacity": 0.45 } }, beforeId);
     }
 
     if (!map.getLayer("follow-route-layer")) {
-      map.addLayer(
-        {
-          id: "follow-route-layer",
-          type: "line",
-          source: "follow-route",
-          layout: { "line-join": "round", "line-cap": "round" },
-          paint: {
-            "line-color": "#f97316",
-            "line-width": 4,
-            "line-opacity": 0.95,
-          },
-        },
-        beforeId
-      );
+      map.addLayer({ id: "follow-route-layer", type: "line", source: "follow-route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#f97316", "line-width": 4, "line-opacity": 0.95 } }, beforeId);
     }
   };
 
@@ -1375,50 +904,28 @@ export default function MapaBase({
     lastFollowPosRef.current = null;
     lastGeoCheckPosRef.current = null;
     lastGeoResultRef.current = { geoNormal: null, geoLineal: null };
-
     const src = map.getSource("follow-route");
     if (src) src.setData({ type: "FeatureCollection", features: [] });
   };
 
   const pushFollowPoint = (coords) => {
     const last = lastFollowPosRef.current;
-
-    if (
-      last &&
-      Math.abs(last[0] - coords[0]) < 0.00001 &&
-      Math.abs(last[1] - coords[1]) < 0.00001
-    )
-      return;
-
+    if (last && Math.abs(last[0] - coords[0]) < 0.00001 && Math.abs(last[1] - coords[1]) < 0.00001) return;
     lastFollowPosRef.current = coords;
     followPathRef.current.push(coords);
-
-    if (followPathRef.current.length > 1200) {
-      followPathRef.current.shift();
-    }
+    if (followPathRef.current.length > 1200) followPathRef.current.shift();
   };
 
   const updateFollowRouteSource = (map) => {
     const path = followPathRef.current;
     if (path.length < 2) return;
-
     const src = map.getSource("follow-route");
     if (!src) return;
-
-    src.setData({
-      type: "FeatureCollection",
-      features: [
-        {
-          type: "Feature",
-          geometry: { type: "LineString", coordinates: path },
-          properties: {},
-        },
-      ],
-    });
+    src.setData({ type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "LineString", coordinates: path }, properties: {} }] });
   };
 
   /* =========================
-     ✅ FOLLOW (PANEL FIJO ARRIBA DERECHA)
+     ✅ FOLLOW TICK
   ========================= */
   const followUnitTick = (map) => {
     if (!followUnitId) return;
@@ -1431,26 +938,16 @@ export default function MapaBase({
     if (!coords) return;
 
     if (!userZoomingRef.current) {
-      map.easeTo({
-        center: coords,
-        zoom: map.getZoom(),
-        duration: 450,
-      });
+      map.easeTo({ center: coords, zoom: map.getZoom(), duration: 450 });
     } else {
-      map.easeTo({
-        center: coords,
-        duration: 450,
-      });
+      map.easeTo({ center: coords, duration: 450 });
     }
 
     ensureFollowRoute(map);
     pushFollowPoint(coords);
     updateFollowRouteSource(map);
 
-    if (!showInfoPopup) {
-      setFixedPanelInfo(null);
-      return;
-    }
+    if (!showInfoPopup) { setFixedPanelInfo(null); return; }
 
     const id = String(followUnitId);
     const name = unitNameById.get(id) || "Unidad";
@@ -1462,30 +959,21 @@ export default function MapaBase({
     if (movedEnoughForGeo(coords)) {
       geoNormal = findPolygonGeofenceName(coords);
       geoLineal = findLinearGeofenceName(coords);
-
       lastGeoCheckPosRef.current = coords;
       lastGeoResultRef.current = { geoNormal, geoLineal };
     }
 
-    setFixedPanelInfo({
-      name,
-      speed,
-      speedLimit,
-      geoNormal,
-      geoLineal,
-    });
+    setFixedPanelInfo({ name, speed, speedLimit, geoNormal, geoLineal });
   };
 
   /* =========================
-     ✅ LIMPIAR LAYERS Y FLAGS AL CAMBIAR ESTILO
+     ✅ RESET FLAGS AL CAMBIAR ESTILO
   ========================= */
   const resetLayerFlags = () => {
     geocercasLinealesListenersAddedRef.current = false;
     geocercasListenersAddedRef.current = false;
     unitsListenersAddedRef.current = false;
     historyStopsLayerAddedRef.current = false;
-    // ✅ Limpiar badge layer en cambio de estilo (Mapbox lo borra pero reseteamos imagen)
-    // Las imágenes SDF también se pierden al cambiar estilo
   };
 
   /* =========================
@@ -1507,10 +995,7 @@ export default function MapaBase({
     map.on("zoomstart", () => {
       userZoomingRef.current = true;
       if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
-
-      zoomTimeoutRef.current = setTimeout(() => {
-        userZoomingRef.current = false;
-      }, 1200);
+      zoomTimeoutRef.current = setTimeout(() => { userZoomingRef.current = false; }, 1200);
     });
 
     map.on("load", () => {
@@ -1533,7 +1018,7 @@ export default function MapaBase({
   }, []);
 
   /* =========================
-     STYLE CHANGE — ✅ FIX: reset flags al cambiar estilo
+     STYLE CHANGE
   ========================= */
   useEffect(() => {
     const map = mapRef.current;
@@ -1542,20 +1027,14 @@ export default function MapaBase({
     map.setStyle(mapStyle);
 
     map.once("style.load", () => {
-      // ✅ Resetear todos los flags porque el estilo limpia todo
       resetLayerFlags();
-
       runWhenReady(map, () => {
         drawGeocercas(map);
         drawGeocercasLineales(map);
         drawUnits(map);
         drawHistoryRoute(map);
         drawHistoryStops(map);
-
-        if (followUnitId) {
-          ensureFollowRoute(map);
-          updateFollowRouteSource(map);
-        }
+        if (followUnitId) { ensureFollowRoute(map); updateFollowRouteSource(map); }
       });
     });
   }, [mapStyle]);
@@ -1566,7 +1045,6 @@ export default function MapaBase({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-
     runWhenReady(map, () => {
       drawUnits(map);
       if (followUnitId) followUnitTick(map);
@@ -1574,12 +1052,11 @@ export default function MapaBase({
   }, [units, followUnitId, showInfoPopup]);
 
   /* =========================
-     ✅ UPDATE HISTORY ROUTE
+     UPDATE HISTORY ROUTE
   ========================= */
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-
     runWhenReady(map, () => {
       drawHistoryRoute(map);
       drawHistoryStops(map);
@@ -1592,14 +1069,8 @@ export default function MapaBase({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-
     runWhenReady(map, () => {
-      if (!followUnitId) {
-        clearFollowRoute(map);
-        setFixedPanelInfo(null);
-        return;
-      }
-
+      if (!followUnitId) { clearFollowRoute(map); setFixedPanelInfo(null); return; }
       ensureFollowRoute(map);
       clearFollowRoute(map);
       followUnitTick(map);
@@ -1607,9 +1078,7 @@ export default function MapaBase({
   }, [followUnitId, showInfoPopup]);
 
   /* =========================
-     UPDATE GEOCERCAS — ✅ FIX: ref para detectar cambios reales
-     Evita re-ejecutar cuando el contexto dispara renders
-     sin que los datos hayan cambiado realmente.
+     UPDATE GEOCERCAS
   ========================= */
   const prevGeocercasRefObj = useRef(null);
   const prevLinealesRefObj = useRef(null);
@@ -1619,7 +1088,6 @@ export default function MapaBase({
     if (!map) return;
     if (prevGeocercasRefObj.current === geocercasGeoJSON) return;
     prevGeocercasRefObj.current = geocercasGeoJSON;
-
     runWhenReady(map, () => {
       drawGeocercas(map);
       if (followUnitId) followUnitTick(map);
@@ -1631,161 +1099,70 @@ export default function MapaBase({
     if (!map) return;
     if (prevLinealesRefObj.current === geocercasLinealesGeoJSON) return;
     prevLinealesRefObj.current = geocercasLinealesGeoJSON;
-
     runWhenReady(map, () => {
       drawGeocercasLineales(map);
       if (followUnitId) followUnitTick(map);
     });
   }, [geocercasLinealesGeoJSON]);
 
+  /* =========================
+     RENDER
+  ========================= */
   return (
     <div ref={containerRef} className="w-full h-full relative">
       {/* ✅ PANEL FIJO ARRIBA DERECHA */}
       {fixedPanelInfo && showInfoPopup && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '20px',
-            right: '60px',
-            zIndex: 1000,
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            minWidth: '260px',
-            maxWidth: '320px',
-            fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
-          }}
-        >
-          {/* Header con botón cerrar */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '12px 14px',
-              borderBottom: '1px solid #e5e7eb',
-            }}
-          >
+        <div style={{
+          position: 'absolute', top: '20px', right: '60px', zIndex: 1000,
+          backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          minWidth: '260px', maxWidth: '320px',
+          fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
+        }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderBottom: '1px solid #e5e7eb' }}>
             <div style={{ fontWeight: 800, fontSize: '15px', color: '#111827' }}>
               {fixedPanelInfo.name || 'Unidad'}
             </div>
             <button
-              onClick={() => {
-                setFollowUnitId(null);
-                const map = mapRef.current;
-                if (map) clearFollowRoute(map);
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '20px',
-                color: '#6b7280',
-                padding: '0',
-                lineHeight: '1',
-              }}
-            >
-              ×
-            </button>
+              onClick={() => { setFollowUnitId(null); const map = mapRef.current; if (map) clearFollowRoute(map); }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: '#6b7280', padding: '0', lineHeight: '1' }}
+            >×</button>
           </div>
 
           {/* Contenido */}
           <div style={{ padding: '12px 14px' }}>
             {/* Velocidad */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '10px',
-              }}
-            >
-              <span style={{ fontSize: '13px', color: '#374151' }}>
-                🚚 Velocidad
-              </span>
-              <div
-                style={{
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  padding: '4px 10px',
-                  borderRadius: '999px',
-                  background:
-                    fixedPanelInfo.speed > 0 ? '#dcfce7' : '#f3f4f6',
-                  color: fixedPanelInfo.speed > 0 ? '#16a34a' : '#6b7280',
-                }}
-              >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <span style={{ fontSize: '13px', color: '#374151' }}>🚚 Velocidad</span>
+              <div style={{
+                fontSize: '13px', fontWeight: 700, padding: '4px 10px', borderRadius: '999px',
+                background: fixedPanelInfo.speed > 0 ? '#dcfce7' : '#f3f4f6',
+                color: fixedPanelInfo.speed > 0 ? '#16a34a' : '#6b7280',
+              }}>
                 {fixedPanelInfo.speed} km/h
               </div>
             </div>
 
-            {/* Límite de velocidad */}
+            {/* Límite */}
             {fixedPanelInfo.speedLimit != null && (
-              <div
-                style={{
-                  fontSize: '12px',
-                  color: '#374151',
-                  marginBottom: '10px',
-                  padding: '6px 10px',
-                  backgroundColor: '#f9fafb',
-                  borderRadius: '6px',
-                }}
-              >
+              <div style={{ fontSize: '12px', color: '#374151', marginBottom: '10px', padding: '6px 10px', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
                 ⚠️ Límite: <strong>{fixedPanelInfo.speedLimit}</strong> km/h
                 {fixedPanelInfo.speed > fixedPanelInfo.speedLimit && (
-                  <span
-                    style={{
-                      marginLeft: '8px',
-                      color: '#ef4444',
-                      fontWeight: 800,
-                    }}
-                  >
-                    🚨 Exceso
-                  </span>
+                  <span style={{ marginLeft: '8px', color: '#ef4444', fontWeight: 800 }}>🚨 Exceso</span>
                 )}
               </div>
             )}
 
-            {/* Estado de geocerca */}
-            <div
-              style={{
-                fontSize: '12px',
-                fontWeight: 700,
-                marginBottom: '8px',
-                color:
-                  fixedPanelInfo.geoNormal || fixedPanelInfo.geoLineal
-                    ? '#16a34a'
-                    : '#ef4444',
-              }}
-            >
-              {fixedPanelInfo.geoNormal || fixedPanelInfo.geoLineal
-                ? '✓ Dentro de geocerca'
-                : '✗ Fuera de geocerca'}
+            {/* Estado geocerca */}
+            <div style={{ fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: fixedPanelInfo.geoNormal || fixedPanelInfo.geoLineal ? '#16a34a' : '#ef4444' }}>
+              {fixedPanelInfo.geoNormal || fixedPanelInfo.geoLineal ? '✓ Dentro de geocerca' : '✗ Fuera de geocerca'}
             </div>
 
-            {/* Detalles de geocerca */}
-            <div
-              style={{
-                fontSize: '12px',
-                color: '#374151',
-                lineHeight: '1.5',
-                backgroundColor: '#f9fafb',
-                padding: '8px 10px',
-                borderRadius: '6px',
-              }}
-            >
-              {fixedPanelInfo.geoNormal && (
-                <div style={{ marginBottom: '4px' }}>
-                  <strong>📍 Geocerca:</strong> {fixedPanelInfo.geoNormal}
-                </div>
-              )}
-              {fixedPanelInfo.geoLineal && (
-                <div>
-                  <strong>📏 Lineal:</strong> {fixedPanelInfo.geoLineal}
-                </div>
-              )}
-              {!fixedPanelInfo.geoNormal && !fixedPanelInfo.geoLineal && (
-                <div style={{ color: '#9ca3af' }}>Sin geocerca asignada</div>
-              )}
+            {/* Detalles geocerca */}
+            <div style={{ fontSize: '12px', color: '#374151', lineHeight: '1.5', backgroundColor: '#f9fafb', padding: '8px 10px', borderRadius: '6px' }}>
+              {fixedPanelInfo.geoNormal && <div style={{ marginBottom: '4px' }}><strong>📍 Geocerca:</strong> {fixedPanelInfo.geoNormal}</div>}
+              {fixedPanelInfo.geoLineal && <div><strong>📏 Lineal:</strong> {fixedPanelInfo.geoLineal}</div>}
+              {!fixedPanelInfo.geoNormal && !fixedPanelInfo.geoLineal && <div style={{ color: '#9ca3af' }}>Sin geocerca asignada</div>}
             </div>
           </div>
         </div>
