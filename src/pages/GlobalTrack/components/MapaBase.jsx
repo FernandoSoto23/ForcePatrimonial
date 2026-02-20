@@ -243,6 +243,48 @@ export default function MapaBase({
     img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   };
 
+  // ✅ NUEVO: Ícono de caseta de peaje para geocercas CST
+  const ensureCSTIcon = (map, cb) => {
+    if (map.hasImage("cst-toll-icon")) { cb(); return; }
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+      <!-- Base / piso -->
+      <rect x="4" y="56" width="44" height="6" rx="2" fill="#b0b8c8"/>
+      <!-- Cuerpo de la caseta -->
+      <rect x="6" y="30" width="36" height="28" rx="3" fill="#f5a623"/>
+      <!-- Franjas blancas -->
+      <rect x="6" y="46" width="36" height="5" fill="#ffffff" opacity="0.4"/>
+      <rect x="6" y="53" width="36" height="5" fill="#ffffff" opacity="0.4"/>
+      <!-- Techo -->
+      <rect x="2" y="24" width="44" height="8" rx="2" fill="#5b7fa6"/>
+      <!-- Ventana -->
+      <rect x="14" y="33" width="16" height="12" rx="3" fill="#aed6f1" stroke="#5b7fa6" stroke-width="1.5"/>
+      <line x1="22" y1="33" x2="22" y2="45" stroke="#5b7fa6" stroke-width="1" opacity="0.6"/>
+      <!-- Cámara en techo -->
+      <rect x="21" y="20" width="6" height="5" rx="1" fill="#374151"/>
+      <circle cx="24" cy="19" r="2" fill="#1f2937"/>
+      <!-- Semáforo -->
+      <rect x="7" y="32" width="5" height="13" rx="1" fill="#374151"/>
+      <circle cx="9.5" cy="34.5" r="1.5" fill="#ef4444"/>
+      <circle cx="9.5" cy="38" r="1.5" fill="#f59e0b"/>
+      <circle cx="9.5" cy="41.5" r="1.5" fill="#22c55e"/>
+      <!-- Poste de barrera -->
+      <rect x="47" y="38" width="5" height="22" rx="2" fill="#6b7280"/>
+      <!-- Brazo de la barrera (levantado ~45°) — rojo y blanco -->
+      <line x1="50" y1="40" x2="76" y2="14" stroke="#ef4444" stroke-width="4.5" stroke-linecap="round"/>
+      <line x1="50" y1="40" x2="76" y2="14" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="5,5"/>
+      <!-- Contrapeso de la barrera -->
+      <rect x="44" y="41" width="8" height="10" rx="2" fill="#4b5563"/>
+      <!-- Etiqueta CST -->
+      <rect x="8" y="48" width="22" height="9" rx="2" fill="#1e3a5f" opacity="0.88"/>
+      <text x="19" y="55.5" text-anchor="middle" font-family="Arial Black, Arial" font-weight="900" font-size="6.5" fill="#ffffff" letter-spacing="0.8">CST</text>
+    </svg>`;
+
+    const img = new Image(80, 80);
+    img.onload = () => { if (!map.hasImage("cst-toll-icon")) map.addImage("cst-toll-icon", img); cb(); };
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  };
+
   /* =========================
      🔥 GEO HELPERS
   ========================= */
@@ -759,11 +801,13 @@ export default function MapaBase({
     const isRiesgo = [">=", ["index-of", "riesgo", ["downcase", ["coalesce", ["get", "name"], ""]]], 0];
     const isBajaCobertura = [">=", ["index-of", "baja cobertura", ["downcase", ["coalesce", ["get", "name"], ""]]], 0];
     const isPA = ["all", [">=", ["index-of", "p.a", ["downcase", ["coalesce", ["get", "name"], ""]]], 0]];
+    // ✅ NUEVO: filtro para geocercas CST (nombre inicia con "cst")
+    const isCST = ["==", ["slice", ["downcase", ["coalesce", ["get", "name"], ""]], 0, 3], "cst"];
 
     map.addLayer({
       id: "geocercas-fill", type: "fill", source: "geocercas",
       paint: {
-        "fill-color": ["case", isRiesgo, "#dc2626", isBajaCobertura, "#facc15", "#16a34a"],
+        "fill-color": ["case", isRiesgo, "#dc2626", isBajaCobertura, "#facc15", isCST, "#1e3a5f", "#16a34a"],
         "fill-opacity": 0.18,
       },
     });
@@ -771,7 +815,7 @@ export default function MapaBase({
     map.addLayer({
       id: "geocercas-line", type: "line", source: "geocercas",
       paint: {
-        "line-color": ["case", isRiesgo, "#7f1d1d", isBajaCobertura, "#a16207", "#15803d"],
+        "line-color": ["case", isRiesgo, "#7f1d1d", isBajaCobertura, "#a16207", isCST, "#1e3a5f", "#15803d"],
         "line-width": 2,
       },
     });
@@ -815,6 +859,20 @@ export default function MapaBase({
       });
     });
 
+    // ✅ NUEVO: ícono de caseta de peaje para geocercas CST
+    ensureCSTIcon(map, () => {
+      map.addLayer({
+        id: "geocercas-cst-icon", type: "symbol", source: "geocercas", filter: isCST,
+        layout: {
+          "icon-image": "cst-toll-icon",
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 5, 0.28, 10, 0.45, 14, 0.65, 18, 0.9],
+          "icon-anchor": "bottom",
+          "icon-offset": ["interpolate", ["linear"], ["zoom"], 5, [0, -1], 14, [0, -3], 18, [0, -4]],
+          "icon-allow-overlap": true, "icon-ignore-placement": true,
+        },
+      });
+    });
+
     map.addLayer({
       id: "geocercas-label", type: "symbol", source: "geocercas", minzoom: 8,
       layout: {
@@ -826,7 +884,7 @@ export default function MapaBase({
         "symbol-placement": "point",
       },
       paint: {
-        "text-color": ["case", isRiesgo, "#7f1d1d", isBajaCobertura, "#713f12", "#14532d"],
+        "text-color": ["case", isRiesgo, "#7f1d1d", isBajaCobertura, "#713f12", isCST, "#1e3a5f", "#14532d"],
         "text-halo-color": "#ffffff",
         "text-halo-width": 2,
       },
