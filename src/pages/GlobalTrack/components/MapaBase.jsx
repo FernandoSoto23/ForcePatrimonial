@@ -907,10 +907,21 @@ export default function MapaBase({
     map.addSource("geocercas-lineales", { type: "geojson", data: geocercasLinealesGeoJSON });
 
     if (!map.getLayer("geocercas-lineales-layer")) {
+      const isLinealBajaCobertura = [">=", ["index-of", "baja cobertura", ["downcase", ["coalesce", ["get", "name"], ""]]], 0];
+      const isLinealRiesgo = [">=", ["index-of", "riesgo", ["downcase", ["coalesce", ["get", "name"], ""]]], 0];
+
       map.addLayer({
         id: "geocercas-lineales-layer", type: "line", source: "geocercas-lineales",
         layout: { "line-join": "round", "line-cap": "round" },
-        paint: { "line-color": "#1e40af", "line-width": 3, "line-opacity": 0.9 },
+        paint: {
+          "line-color": ["case",
+            isLinealRiesgo, "#dc2626",
+            isLinealBajaCobertura, "#eab308",
+            "#1e40af"
+          ],
+          "line-width": 3,
+          "line-opacity": 0.9,
+        },
       });
     }
 

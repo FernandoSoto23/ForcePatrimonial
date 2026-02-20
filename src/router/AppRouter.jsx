@@ -14,6 +14,8 @@ import MonitoreoPro from "../pages/MonitoreoPro";
 import GlobalTrack from "../pages/GlobalTrack";
 import SeguridadInterna from "../pages/SeguridadInterna";
 
+// ✅ NUEVO: Mantenimiento
+import MantenimientoDashboard from "../pages/Maintenance/Dashboard";
 
 export default function AppRouter() {
   return (
@@ -48,7 +50,9 @@ export default function AppRouter() {
         <Route path="/dispositivos" element={<Dispositivos />} />
         <Route path="/monitoreopro" element={<MonitoreoPro />} />
         <Route path="/globaltrack" element={<GlobalTrack />} />
-      
+
+        {/* ✅ NUEVO: Mantenimiento */}
+        <Route path="/mantenimiento" element={<MantenimientoDashboard />} />
       </Route>
 
       {/* =========================
